@@ -6,9 +6,9 @@ from _pytest._code import ExceptionInfo
 from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
 
-from pytest_markdown import hooks
+from pytest_markdown_docs import hooks
 
-MARKER_NAME = "markdown-python"
+MARKER_NAME = "markdown-docs"
 
 
 class MarkdownInlinePythonItem(pytest.Item):
@@ -24,7 +24,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         self.user_properties.append(("code", code))
 
     def runtest(self):
-        global_sets = self.parent.config.hook.pytest_markdown_globals()
+        global_sets = self.parent.config.hook.pytest_markdown_docs_globals()
         all_globals = {}
         for global_set in global_sets:
             all_globals.update(global_set)
@@ -107,7 +107,7 @@ def pytest_collect_file(
     path,
     parent,
 ):
-    if parent.config.option.markdownpython:
+    if parent.config.option.markdowndocs:
         if path.ext == ".py":
             return MarkdownDocstringCodeModule.from_parent(parent, fspath=path)
         elif path.ext in (".md", ".mdx", ".svx"):
@@ -117,17 +117,17 @@ def pytest_collect_file(
 
 
 def pytest_configure(config):
-    config.addinivalue_line("markers", f"{MARKER_NAME}: run markdown-inlined code blocks as tests")
+    config.addinivalue_line("markers", f"{MARKER_NAME}: filter for pytest-markdown-docs generated tests")
 
 
 def pytest_addoption(parser: Parser) -> None:
     group = parser.getgroup("collect")
     group.addoption(
-        "--markdown-python",
+        "--markdown-docs",
         action="store_true",
         default=False,
         help="run ",
-        dest="markdownpython",
+        dest="markdowndocs",
     )
 
 

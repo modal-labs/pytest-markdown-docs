@@ -1,7 +1,6 @@
-# Pytest Markdown
+# Pytest Markdown Docs
 
-A plugin for [pytest](https://docs.pytest.org) that runs markdown code snippets
-through pytest.
+A plugin for [pytest](https://docs.pytest.org) that uses markdown code snippets from markdown files and docstrings as tests.
 
 Detects Python code fences (triple backtick escaped blocks) in markdown files as
 well as inline Python docstrings (similar to doctests) and runs them as tests.
@@ -74,11 +73,11 @@ are currently two ways you can do this with pytest-markdown:
 ### Injecting global/local variables
 
 If you have some common imports or other common variables that you want to make
-use of in snippets, you can add them by creating a `pytest_markdown_globals`
+use of in snippets, you can add them by creating a `pytest_markdown_docs_globals`
 hook in your `conftest.py`:
 
 ```python
-def pytest_markdown_globals():
+def pytest_markdown_docs_globals():
     import math
     return {"math": math, "myvar": "hello"}
 ```
