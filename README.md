@@ -41,10 +41,17 @@ assert result == "hello"
 
 ## Usage
 
-First, make sure to install the plugin, e.g. `pip install pytest-markdown`
+First, make sure to install the plugin, e.g. `pip install pytest-markdown-docs`
 
-To enable markdown python tests, pass the `--markdown-python` flag to `pytest`:
-`pytest --markdown-python`
+To enable markdown python tests, pass the `--markdown-docs` flag to `pytest`:
+```shell
+pytest --markdown-docs
+```
+
+You can also use the `markdown-docs` flag to filter *only* markdown-docs tests:
+```shell
+pytest --markdown-docs -m markdown-docs
+```
 
 ### Detection conditions
 
@@ -111,8 +118,12 @@ assert a + " world" == "hello world"
 You can test this module itself (sadly not using markdown tests at the moment) using pytest:
 
 ```shell
-> cd pytest-markdown  # cd to the repo directory
-> PYTHONPATH=. pytest
+> poetry run pytest
+```
+
+Or for fun, you can use this plugin to include testing of the validity of snippets in this README.md file:
+```shell
+> poetry run pytest --markdown-docs
 ```
 
 

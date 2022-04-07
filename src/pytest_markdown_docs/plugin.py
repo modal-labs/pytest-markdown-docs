@@ -67,8 +67,8 @@ def find_object_tests_recursive(module_name, object_name, object):
     docstr = inspect.getdoc(object)
 
     if docstr:
-        for docstring_pos, code_block in extract_code_blocks(docstr):
-            yield object_name, code_block
+        for snippet_ix, (docstring_pos, code_block) in enumerate(extract_code_blocks(docstr)):
+            yield f"{object_name} Code fence #{snippet_ix}", code_block
 
     for member_name, member in inspect.getmembers(object):
         if member_name.startswith("_"):
@@ -77,7 +77,7 @@ def find_object_tests_recursive(module_name, object_name, object):
         if (
             inspect.isclass(member) or inspect.isfunction(member) or inspect.ismethod(member)
         ) and member.__module__ == module_name:
-            yield from find_object_tests_recursive(module_name, f"{object_name}.{member_name}", member)
+            yield from find_object_tests_recursive(module_name, member_name, member)
 
 
 class MarkdownDocstringCodeModule(pytest.Module):
@@ -91,14 +91,14 @@ class MarkdownDocstringCodeModule(pytest.Module):
             )
 
 
-class MarkdownTextModule(pytest.Module):
+class MarkdownTextFile(pytest.File):
     def collect(self):
         markdown_content = self.fspath.read_text("utf8")
 
         for snippet_ix, (docstring_pos, code_block) in enumerate(extract_code_blocks(markdown_content)):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"{self.fspath.basename} #{snippet_ix}",
+                name=f"Code fence #{snippet_ix}",
                 code=code_block,
             )
 
@@ -111,7 +111,7 @@ def pytest_collect_file(
         if path.ext == ".py":
             return MarkdownDocstringCodeModule.from_parent(parent, fspath=path)
         elif path.ext in (".md", ".mdx", ".svx"):
-            return MarkdownTextModule.from_parent(parent, fspath=path)
+            return MarkdownTextFile.from_parent(parent, fspath=path)
 
     return None
 
