@@ -12,19 +12,32 @@ Python file example:
 # mymodule.py
 class Foo:
     def bar(self):
+        """Bar the foo
+        
+        This is a sample docstring for the bar method 
+
+        Usage:
         ```python
         import mymodule
         result = mymodule.Foo().bar()
         assert result == "hello"
         ```
+        """
         return "hello"
 ````
 
 Markdown file examples:
 
 ````markdown
-` ``` ` import mymodule result = mymodule.Foo().bar() assert result == "hello"
-` ``` `
+# Title
+
+Lorem ipsum yada yada yada
+
+```python
+import mymodule
+result = mymodule.Foo().bar()
+assert result == "hello"
+```
 ````
 
 ## Usage
