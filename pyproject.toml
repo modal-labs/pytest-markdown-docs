@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "pytest-markdown"
+version = "0.1.0"
+description = "Run markdown code fences through pytest"
+authors = ["Elias Freider <elias@modal.com>"]
+license = "MIT"
+classifiers = ["Framework :: Pytest"]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+markdown-it-py = "~=1.1.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "~=6.2.5"
+
+[tool.poetry.plugins]
+
+[tool.poetry.plugins."pytest11"]
+"pytest_markdown" = "pytest_markdown.plugin"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
