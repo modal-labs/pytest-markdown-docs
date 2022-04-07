@@ -1,11 +1,13 @@
 [tool.poetry]
 name = "pytest-markdown-docs"
-version = "0.1.0"
+version = "0.1.1"
 description = "Run markdown code fences through pytest"
+readme = "README.md"
 authors = ["Modal Labs", "Elias Freider <elias@modal.com>"]
 license = "MIT"
 classifiers = ["Framework :: Pytest"]
 repository = "https://github.com/modal-com/pytest-markdown-docs"
+include = ["LICENSE"]
 
 [tool.poetry.dependencies]
 python = "^3.6"
