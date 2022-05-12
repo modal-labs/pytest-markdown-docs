@@ -12,8 +12,8 @@ Python file example:
 class Foo:
     def bar(self):
         """Bar the foo
-        
-        This is a sample docstring for the bar method 
+
+        This is a sample docstring for the bar method
 
         Usage:
         ```python
@@ -97,6 +97,21 @@ test, without causing an error:
 print(myvar, math.pi)
 ```
 ````
+
+### Fixtures
+
+You can use both `autouse=True` pytest fixtures in a conftest.py or named fixtures with
+your markdown tests. To specify named fixtures, add `fixture:<name>` markers to the code
+fence info string, e.g.,
+
+````markdown
+```python fixture:capsys
+print("hello")
+captured = capsys.readouterr()
+assert captured.out == "hello\n"
+````
+As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
+
 
 ### Depending on previous snippets
 
