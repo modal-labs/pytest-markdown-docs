@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pytest-markdown-docs"
-version = "0.1.1"
+version = "0.2.0"
 description = "Run markdown code fences through pytest"
 readme = "README.md"
 authors = ["Modal Labs", "Elias Freider <elias@modal.com>"]
