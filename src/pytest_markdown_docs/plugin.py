@@ -18,11 +18,15 @@ class MarkdownInlinePythonItem(pytest.Item):
         name: str,
         parent: typing.Union["MarkdownDocstringCodeModule", "MarkdownTextFile"],
         code: str,
+        usefixtures: typing.List[str] = [],
     ) -> None:
         super().__init__(name, parent)
         self.add_marker(MARKER_NAME)
         self.code = code
         self.user_properties.append(("code", code))
+
+        self.usefixtures = usefixtures
+        self.add_marker(pytest.mark.usefixtures(*usefixtures))
 
     def setup(self):
         def func() -> None:
@@ -40,6 +44,11 @@ class MarkdownInlinePythonItem(pytest.Item):
         all_globals = {}
         for global_set in global_sets:
             all_globals.update(global_set)
+
+        for fixture_name in self.usefixtures:
+            fixture_value = self.fixture_request.getfixturevalue(fixture_name)
+            all_globals[fixture_name] = fixture_value
+
 
         exec(self.code, all_globals)
 
@@ -71,7 +80,9 @@ def extract_code_blocks(markdown_string: str):
             code_block = block.content
             if "continuation" in code_info:
                 code_block = prev + code_block
-            yield block.map, code_block
+
+            fixture_names = [f[len("fixture:"):] for f in code_info if f.startswith("fixture:")]
+            yield code_block, fixture_names
             prev = code_block
 
 
@@ -79,8 +90,8 @@ def find_object_tests_recursive(module_name: str, object_name: str, object: typi
     docstr = inspect.getdoc(object)
 
     if docstr:
-        for snippet_ix, (docstring_pos, code_block) in enumerate(extract_code_blocks(docstr)):
-            yield f"{object_name} Code fence #{snippet_ix}", code_block
+        for snippet_ix, (code_block, fixture_names) in enumerate(extract_code_blocks(docstr)):
+            yield f"{object_name} Code fence #{snippet_ix}", code_block, fixture_names
 
     for member_name, member in inspect.getmembers(object):
         if member_name.startswith("_"):
@@ -95,11 +106,12 @@ def find_object_tests_recursive(module_name: str, object_name: str, object: typi
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
         module = import_path(self.fspath)
-        for test_name, test_code in find_object_tests_recursive(module.__name__, module.__name__, module):
+        for test_name, test_code, fixture_names in find_object_tests_recursive(module.__name__, module.__name__, module):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
                 name=test_name,
                 code=test_code,
+                usefixtures=fixture_names,
             )
 
 
@@ -107,11 +119,12 @@ class MarkdownTextFile(pytest.File):
     def collect(self):
         markdown_content = self.fspath.read_text("utf8")
 
-        for snippet_ix, (docstring_pos, code_block) in enumerate(extract_code_blocks(markdown_content)):
+        for snippet_ix, (code_block, fixture_names) in enumerate(extract_code_blocks(markdown_content)):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
                 name=f"Code fence #{snippet_ix}",
                 code=code_block,
+                usefixtures=fixture_names,
             )
 
 

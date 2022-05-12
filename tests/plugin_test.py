@@ -82,7 +82,7 @@ def test_autouse_fixtures(testdir):
 import pytest
 
 @pytest.fixture(autouse=True)
-def initialize(request):
+def initialize():
     import pytest_markdown_docs
     pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
     yield
@@ -96,6 +96,34 @@ def initialize(request):
         ```python
         import pytest_markdown_docs
         assert pytest_markdown_docs.bump == 1
+        ```
+        \"\"\"
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_specific_fixtures(testdir):
+    testdir.makeconftest("""
+import pytest
+
+@pytest.fixture()
+def initialize_specific():
+    import pytest_markdown_docs
+    pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
+    yield "foobar"
+    pytest_markdown_docs.bump -= 1
+""")
+
+    testdir.makefile(
+        ".md",
+        """
+        \"\"\"
+        ```python fixture:initialize_specific
+        import pytest_markdown_docs
+        assert pytest_markdown_docs.bump == 1
+        assert initialize_specific == "foobar"
         ```
         \"\"\"
     """,
