@@ -109,6 +109,7 @@ fence info string, e.g.,
 print("hello")
 captured = capsys.readouterr()
 assert captured.out == "hello\n"
+```
 ````
 As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
 
