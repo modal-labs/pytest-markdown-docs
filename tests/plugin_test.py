@@ -75,3 +75,30 @@ def test_markdown_text_file(testdir):
     # run all tests with pytest
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=1)
+
+
+def test_autouse_fixtures(testdir):
+    testdir.makeconftest("""
+import pytest
+
+@pytest.fixture(autouse=True)
+def initialize(request):
+    import pytest_markdown_docs
+    pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
+    yield
+    pytest_markdown_docs.bump -= 1
+""")
+
+    testdir.makefile(
+        ".md",
+        """
+        \"\"\"
+        ```python
+        import pytest_markdown_docs
+        assert pytest_markdown_docs.bump == 1
+        ```
+        \"\"\"
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)

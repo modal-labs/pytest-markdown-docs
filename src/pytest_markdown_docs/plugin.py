@@ -7,6 +7,7 @@ from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
 
 from pytest_markdown_docs import hooks
+from _pytest.fixtures import FixtureRequest
 
 MARKER_NAME = "markdown-docs"
 
@@ -15,13 +16,24 @@ class MarkdownInlinePythonItem(pytest.Item):
     def __init__(
         self,
         name: str,
-        parent: typing.Union["MarkdownDocstringCodeModule", "MarkdownTextModule"],
+        parent: typing.Union["MarkdownDocstringCodeModule", "MarkdownTextFile"],
         code: str,
     ) -> None:
         super().__init__(name, parent)
         self.add_marker(MARKER_NAME)
         self.code = code
         self.user_properties.append(("code", code))
+
+    def setup(self):
+        def func() -> None:
+            pass
+
+        self.funcargs = {}
+        self._fixtureinfo = self.session._fixturemanager.getfixtureinfo(
+            node=self, func=func, cls=None, funcargs=False
+        )
+        self.fixture_request = FixtureRequest(self, _ispytest=True)
+        self.fixture_request._fillfixtures()
 
     def runtest(self):
         global_sets = self.parent.config.hook.pytest_markdown_docs_globals()
@@ -42,11 +54,11 @@ class MarkdownInlinePythonItem(pytest.Item):
         return self.name, 0, f"docstring for {self.name}"
 
 
-def extract_code_blocks(string):
+def extract_code_blocks(markdown_string: str):
     import markdown_it
 
     mi = markdown_it.MarkdownIt(config="commonmark")
-    tokens = mi.parse(string)
+    tokens = mi.parse(markdown_string)
 
     prev = ""
     for block in tokens:
@@ -63,7 +75,7 @@ def extract_code_blocks(string):
             prev = code_block
 
 
-def find_object_tests_recursive(module_name, object_name, object):
+def find_object_tests_recursive(module_name: str, object_name: str, object: typing.Any):
     docstr = inspect.getdoc(object)
 
     if docstr:
