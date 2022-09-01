@@ -1,3 +1,4 @@
+import re
 import pytest_markdown_docs  # hack: used for storing a side effect in one of the tests
 
 
@@ -75,6 +76,51 @@ def test_markdown_text_file(testdir):
     # run all tests with pytest
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=1)
+
+
+def test_traceback(testdir):
+    testdir.makefile(
+        ".md",
+        """
+        \"\"\"
+        yada yada yada
+
+        ```python
+        def foo():
+            raise Exception("doh")
+
+        def bar():
+            foo()
+
+        foo()
+        ```
+        \"\"\"
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=0, failed=1)
+
+    expected_output_pattern = r"""
+Error in code block:
+```
+ 5   def foo\(\):
+ 6       raise Exception\("doh"\)
+ 7
+ 8   def bar\(\):
+ 9       foo\(\)
+10
+11   foo\(\)
+12
+```
+Traceback \(most recent call last\):
+  File ".*/test_traceback.md\#0", line 11, in <module>
+    foo\(\)
+  File ".*/test_traceback.md\#0", line 6, in foo
+    raise Exception\("doh"\)
+Exception: doh
+""".strip()
+    pytest_output = "\n".join(l.rstrip() for l in result.outlines).strip()
+    assert re.search(expected_output_pattern, pytest_output) is not None
 
 
 def test_autouse_fixtures(testdir):
