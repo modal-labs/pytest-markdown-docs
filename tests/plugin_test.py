@@ -113,9 +113,9 @@ Error in code block:
 12
 ```
 Traceback \(most recent call last\):
-  File ".*/test_traceback.md\#0", line 11, in <module>
+  File ".*/test_traceback.md", line 11, in <module>
     foo\(\)
-  File ".*/test_traceback.md\#0", line 6, in foo
+  File ".*/test_traceback.md", line 6, in foo
     raise Exception\("doh"\)
 Exception: doh
 """.strip()
