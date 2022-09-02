@@ -10,11 +10,13 @@ repository = "https://github.com/modal-com/pytest-markdown-docs"
 include = ["LICENSE"]
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.6.2"
 markdown-it-py = "~=1.1.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "~=6.2.5"
+mypy = "^0.971"
+black = "^22.8.0"
 
 [tool.poetry.plugins]
 

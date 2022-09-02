@@ -146,3 +146,6 @@ Or for fun, you can use this plugin to include testing of the validity of snippe
 ## Known issues
 * Only tested with pytest 6.2.5. There seem to be some minor issue with pytest >7 due to changes of some internal functions in pytest, but that should be relatively easy to fix. Contributions are welcome :)
 * Code for docstring-inlined test discovery can probably be done better (similar to how doctest does it). Currently, seems to sometimes traverse into Python's standard library which isn't great...
+* Traceback logic is extremely hacky, wouldn't be surprised if the tracebacks look weird sometimes
+    - Line numbers are "wrong" for docstring-inlined snippets (since we don't know where in the file the docstring starts)
+    - Line numbers are "wrong" for continuation blocks even in pure markdown files (can be worked out with some refactoring)
