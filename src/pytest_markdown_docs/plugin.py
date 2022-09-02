@@ -1,6 +1,5 @@
 import ast
 import inspect
-from pathlib import Path
 import traceback
 import types
 import pytest
@@ -23,7 +22,6 @@ class MarkdownInlinePythonItem(pytest.Item):
         parent: typing.Union["MarkdownDocstringCodeModule", "MarkdownTextFile"],
         code: str,
         usefixtures: typing.List[str],
-        fspath: Path,
         start_line: int,
         fake_line_numbers: bool,
     ) -> None:
@@ -31,7 +29,6 @@ class MarkdownInlinePythonItem(pytest.Item):
         self.add_marker(MARKER_NAME)
         self.code = code
         self.user_properties.append(("code", code))
-        self.fspath = fspath
         self.start_line = start_line
         self.fake_line_numbers = fake_line_numbers
 
@@ -95,7 +92,9 @@ class MarkdownInlinePythonItem(pytest.Item):
                 start_capture = (
                     True  # start capturing frames the first time we enter user code
                 )
-                line = rawlines[frame_summary.lineno - 1] if frame_summary.lineno else ""
+                line = (
+                    rawlines[frame_summary.lineno - 1] if frame_summary.lineno else ""
+                )
             else:
                 lineno = frame_summary.lineno or 0
                 line = frame_summary.line or ""
@@ -137,7 +136,9 @@ class MarkdownInlinePythonItem(pytest.Item):
         return self.name, 0, f"docstring for {self.name}"
 
 
-def extract_code_blocks(markdown_string: str) -> typing.Generator[tuple[str, list[str], int], None, None]:
+def extract_code_blocks(
+    markdown_string: str,
+) -> typing.Generator[tuple[str, list[str], int], None, None]:
     import markdown_it
 
     mi = markdown_it.MarkdownIt(config="commonmark")
@@ -200,7 +201,6 @@ class MarkdownDocstringCodeModule(pytest.Module):
                 name=str(self.fspath),
                 code=test_code,
                 usefixtures=fixture_names,
-                fspath=self.fspath,
                 start_line=start_line,
                 fake_line_numbers=True,  # TODO: figure out where docstrings are in file to offset line numbers properly
             )
@@ -218,7 +218,6 @@ class MarkdownTextFile(pytest.File):
                 name=str(self.fspath),
                 code=code_block,
                 usefixtures=fixture_names,
-                fspath=self.fspath,
                 start_line=start_line,
                 fake_line_numbers=start_line == -1,
             )
