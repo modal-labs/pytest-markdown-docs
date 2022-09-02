@@ -191,7 +191,7 @@ def find_object_tests_recursive(
 
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
-        module = import_path(self.fspath)
+        module = import_path(self.fspath, root=self.config.rootpath)
         for test_code, fixture_names, start_line in find_object_tests_recursive(
             module.__name__, module.__name__, module
         ):
