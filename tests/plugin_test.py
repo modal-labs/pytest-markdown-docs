@@ -50,7 +50,7 @@ def test_docstring_markdown(testdir):
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=2, failed=2)
     assert (
-            getattr(pytest_markdown_docs, "side_effect", None) == "hello"
+        getattr(pytest_markdown_docs, "side_effect", None) == "hello"
     )  # hack to make sure the test actually does something
 
 
@@ -124,7 +124,8 @@ Exception: doh
 
 
 def test_autouse_fixtures(testdir):
-    testdir.makeconftest("""
+    testdir.makeconftest(
+        """
 import pytest
 
 @pytest.fixture(autouse=True)
@@ -133,7 +134,8 @@ def initialize():
     pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
     yield
     pytest_markdown_docs.bump -= 1
-""")
+"""
+    )
 
     testdir.makefile(
         ".md",
@@ -151,7 +153,8 @@ def initialize():
 
 
 def test_specific_fixtures(testdir):
-    testdir.makeconftest("""
+    testdir.makeconftest(
+        """
 import pytest
 
 @pytest.fixture()
@@ -160,7 +163,8 @@ def initialize_specific():
     pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
     yield "foobar"
     pytest_markdown_docs.bump -= 1
-""")
+"""
+    )
 
     testdir.makefile(
         ".md",

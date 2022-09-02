@@ -31,7 +31,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         self.add_marker(MARKER_NAME)
         self.code = code
         self.user_properties.append(("code", code))
-        self.fspath=fspath
+        self.fspath = fspath
         self.start_line = start_line
         self.fake_line_numbers = fake_line_numbers
 
@@ -91,25 +91,34 @@ class MarkdownInlinePythonItem(pytest.Item):
 
         for frame_summary in stack_summary:
             if frame_summary.filename == self.name:
-                lineno = frame_summary.lineno + start_line
-                start_capture = True  # start capturing frames the first time we enter user code
-                line = rawlines[frame_summary.lineno - 1]
+                lineno = (frame_summary.lineno or 0) + start_line
+                start_capture = (
+                    True  # start capturing frames the first time we enter user code
+                )
+                line = rawlines[frame_summary.lineno - 1] if frame_summary.lineno else ""
             else:
-                lineno = frame_summary.lineno
-                line = frame_summary.line
+                lineno = frame_summary.lineno or 0
+                line = frame_summary.line or ""
 
             if start_capture:
                 linespec = f"line {lineno}"
                 if self.fake_line_numbers:
                     linespec = f"code block line {lineno}*"
 
-                traceback_lines.append(f"""  File "{frame_summary.filename}", {linespec}, in {frame_summary.name}""")
+                traceback_lines.append(
+                    f"""  File "{frame_summary.filename}", {linespec}, in {frame_summary.name}"""
+                )
                 traceback_lines.append(f"    {line.lstrip()}")
 
         maxnum = len(str(len(rawlines) + start_line + 1))
-        numbered_code = '\n'.join([f"{i:>{maxnum}}   {line}" for i, line in enumerate(rawlines, start_line + 1)])
+        numbered_code = "\n".join(
+            [
+                f"{i:>{maxnum}}   {line}"
+                for i, line in enumerate(rawlines, start_line + 1)
+            ]
+        )
 
-        pretty_traceback = '\n'.join(traceback_lines)
+        pretty_traceback = "\n".join(traceback_lines)
         note = ""
         if self.fake_line_numbers:
             note = ", *-denoted line numbers refer to code block"
@@ -128,8 +137,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         return self.name, 0, f"docstring for {self.name}"
 
 
-
-def extract_code_blocks(markdown_string: str) -> typing.Generator[str, list[str], int]:
+def extract_code_blocks(markdown_string: str) -> typing.Generator[tuple[str, list[str], int], None, None]:
     import markdown_it
 
     mi = markdown_it.MarkdownIt(config="commonmark")
@@ -137,7 +145,7 @@ def extract_code_blocks(markdown_string: str) -> typing.Generator[str, list[str]
 
     prev = ""
     for block in tokens:
-        if block.type != "fence":
+        if block.type != "fence" or not block.map:
             continue
 
         startline = block.map[0] + 1  # skip the info line when counting
@@ -150,14 +158,20 @@ def extract_code_blocks(markdown_string: str) -> typing.Generator[str, list[str]
 
             if "continuation" in code_info:
                 code_block = prev + code_block
-                startline = -1  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
+                startline = (
+                    -1
+                )  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
 
-            fixture_names = [f[len("fixture:"):] for f in code_info if f.startswith("fixture:")]
+            fixture_names = [
+                f[len("fixture:") :] for f in code_info if f.startswith("fixture:")
+            ]
             yield code_block, fixture_names, startline
             prev = code_block
 
 
-def find_object_tests_recursive(module_name: str, object_name: str, object: typing.Any) -> typing.Generator[tuple[str, list[str], int], None, None]:
+def find_object_tests_recursive(
+    module_name: str, object_name: str, object: typing.Any
+) -> typing.Generator[tuple[str, list[str], int], None, None]:
     docstr = inspect.getdoc(object)
 
     if docstr:
@@ -168,7 +182,9 @@ def find_object_tests_recursive(module_name: str, object_name: str, object: typi
             continue
 
         if (
-            inspect.isclass(member) or inspect.isfunction(member) or inspect.ismethod(member)
+            inspect.isclass(member)
+            or inspect.isfunction(member)
+            or inspect.ismethod(member)
         ) and member.__module__ == module_name:
             yield from find_object_tests_recursive(module_name, member_name, member)
 
@@ -176,7 +192,9 @@ def find_object_tests_recursive(module_name: str, object_name: str, object: typi
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
         module = import_path(self.fspath)
-        for test_code, fixture_names, start_line in find_object_tests_recursive(module.__name__, module.__name__, module):
+        for test_code, fixture_names, start_line in find_object_tests_recursive(
+            module.__name__, module.__name__, module
+        ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
                 name=str(self.fspath),
@@ -184,7 +202,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
                 usefixtures=fixture_names,
                 fspath=self.fspath,
                 start_line=start_line,
-                fake_line_numbers=True  # TODO: figure out where docstrings are in file to offset line numbers properly
+                fake_line_numbers=True,  # TODO: figure out where docstrings are in file to offset line numbers properly
             )
 
 
@@ -192,7 +210,9 @@ class MarkdownTextFile(pytest.File):
     def collect(self):
         markdown_content = self.fspath.read_text("utf8")
 
-        for code_block, fixture_names, start_line in extract_code_blocks(markdown_content):
+        for code_block, fixture_names, start_line in extract_code_blocks(
+            markdown_content
+        ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
                 name=str(self.fspath),
@@ -218,7 +238,9 @@ def pytest_collect_file(
 
 
 def pytest_configure(config):
-    config.addinivalue_line("markers", f"{MARKER_NAME}: filter for pytest-markdown-docs generated tests")
+    config.addinivalue_line(
+        "markers", f"{MARKER_NAME}: filter for pytest-markdown-docs generated tests"
+    )
 
 
 def pytest_addoption(parser: Parser) -> None:
