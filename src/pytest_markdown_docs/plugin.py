@@ -138,7 +138,7 @@ class MarkdownInlinePythonItem(pytest.Item):
 
 def extract_code_blocks(
     markdown_string: str,
-) -> typing.Generator[tuple[str, list[str], int], None, None]:
+) -> typing.Generator[typing.Tuple[str, typing.List[str], int], None, None]:
     import markdown_it
 
     mi = markdown_it.MarkdownIt(config="commonmark")
@@ -172,7 +172,7 @@ def extract_code_blocks(
 
 def find_object_tests_recursive(
     module_name: str, object_name: str, object: typing.Any
-) -> typing.Generator[tuple[str, list[str], int], None, None]:
+) -> typing.Generator[typing.Tuple[str, typing.List[str], int], None, None]:
     docstr = inspect.getdoc(object)
 
     if docstr:
