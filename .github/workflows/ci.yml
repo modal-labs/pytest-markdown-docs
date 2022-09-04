@@ -21,8 +21,8 @@ jobs:
       - name: Install packages
         run: poetry install
       - name: Run tests with pytest
-        run: pytest -s
+        run: poetry run pytest -s
       - name: mypy
-        run: mypy .
+        run: poetry run mypy .
       - name: lint
-        run: black --check .
+        run: poetry run black --check .
