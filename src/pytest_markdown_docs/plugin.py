@@ -193,12 +193,12 @@ def find_object_tests_recursive(
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
         module = import_path(self.fspath, root=self.config.rootpath)
-        for test_code, fixture_names, start_line in find_object_tests_recursive(
-            module.__name__, module.__name__, module
+        for i, (test_code, fixture_names, start_line) in enumerate(
+            find_object_tests_recursive(module.__name__, module.__name__, module)
         ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=str(self.fspath),
+                name=f"{self.fspath}#{i+1}",
                 code=test_code,
                 usefixtures=fixture_names,
                 start_line=start_line,
