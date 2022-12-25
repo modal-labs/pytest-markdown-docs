@@ -41,7 +41,11 @@ assert result == "hello"
 
 ## Usage
 
-First, make sure to install the plugin, e.g. `pip install pytest-markdown-docs`
+First, make sure to install the plugin:
+
+```shell
+pip install pytest-markdown-docs
+```
 
 To enable markdown python tests, pass the `--markdown-docs` flag to `pytest`:
 
