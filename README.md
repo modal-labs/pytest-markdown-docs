@@ -41,14 +41,20 @@ assert result == "hello"
 
 ## Usage
 
-First, make sure to install the plugin, e.g. `pip install pytest-markdown-docs`
+First, make sure to install the plugin:
+
+```shell
+pip install pytest-markdown-docs
+```
 
 To enable markdown python tests, pass the `--markdown-docs` flag to `pytest`:
+
 ```shell
 pytest --markdown-docs
 ```
 
 You can also use the `markdown-docs` flag to filter *only* markdown-docs tests:
+
 ```shell
 pytest --markdown-docs -m markdown-docs
 ```
@@ -111,8 +117,8 @@ captured = capsys.readouterr()
 assert captured.out == "hello\n"
 ```
 ````
-As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
 
+As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
 
 ### Depending on previous snippets
 
@@ -131,6 +137,7 @@ assert a + " world" == "hello world"
 ````
 
 ## Testing of this plugin
+
 You can test this module itself (sadly not using markdown tests at the moment) using pytest:
 
 ```shell
@@ -138,14 +145,15 @@ You can test this module itself (sadly not using markdown tests at the moment) u
 ```
 
 Or for fun, you can use this plugin to include testing of the validity of snippets in this README.md file:
+
 ```shell
 > poetry run pytest --markdown-docs
 ```
 
-
 ## Known issues
+
 * Only tested with pytest 6.2.5. There seem to be some minor issue with pytest >7 due to changes of some internal functions in pytest, but that should be relatively easy to fix. Contributions are welcome :)
 * Code for docstring-inlined test discovery can probably be done better (similar to how doctest does it). Currently, seems to sometimes traverse into Python's standard library which isn't great...
 * Traceback logic is extremely hacky, wouldn't be surprised if the tracebacks look weird sometimes
-    - Line numbers are "wrong" for docstring-inlined snippets (since we don't know where in the file the docstring starts)
-    - Line numbers are "wrong" for continuation blocks even in pure markdown files (can be worked out with some refactoring)
+  * Line numbers are "wrong" for docstring-inlined snippets (since we don't know where in the file the docstring starts)
+  * Line numbers are "wrong" for continuation blocks even in pure markdown files (can be worked out with some refactoring)
