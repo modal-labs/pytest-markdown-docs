@@ -2,6 +2,7 @@ import ast
 import inspect
 import traceback
 import types
+import pathlib
 import pytest
 import typing
 
@@ -192,13 +193,13 @@ def find_object_tests_recursive(
 
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
-        module = import_path(self.fspath, root=self.config.rootpath)
+        module = import_path(self.path, root=self.config.rootpath)
         for i, (test_code, fixture_names, start_line) in enumerate(
             find_object_tests_recursive(module.__name__, module.__name__, module)
         ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"{self.fspath}#{i+1}",
+                name=f"{self.path}#{i+1}",
                 code=test_code,
                 usefixtures=fixture_names,
                 start_line=start_line,
@@ -208,14 +209,14 @@ class MarkdownDocstringCodeModule(pytest.Module):
 
 class MarkdownTextFile(pytest.File):
     def collect(self):
-        markdown_content = self.fspath.read_text("utf8")
+        markdown_content = self.path.read_text("utf8")
 
         for code_block, fixture_names, start_line in extract_code_blocks(
             markdown_content
         ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=str(self.fspath),
+                name=str(self.path),
                 code=code_block,
                 usefixtures=fixture_names,
                 start_line=start_line,
@@ -228,10 +229,11 @@ def pytest_collect_file(
     parent,
 ):
     if parent.config.option.markdowndocs:
-        if path.ext == ".py":
-            return MarkdownDocstringCodeModule.from_parent(parent, fspath=path)
-        elif path.ext in (".md", ".mdx", ".svx"):
-            return MarkdownTextFile.from_parent(parent, fspath=path)
+        pathlib_path = pathlib.Path(str(path))  # pytest 7/8 compat
+        if pathlib_path.suffix == ".py":
+            return MarkdownDocstringCodeModule.from_parent(parent, path=pathlib_path)
+        elif pathlib_path.suffix in (".md", ".mdx", ".svx"):
+            return MarkdownTextFile.from_parent(parent, path=pathlib_path)
 
     return None
 
