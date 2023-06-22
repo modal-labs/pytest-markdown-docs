@@ -29,6 +29,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         super().__init__(name, parent)
         self.add_marker(MARKER_NAME)
         self.code = code
+        self.obj = None
         self.user_properties.append(("code", code))
         self.start_line = start_line
         self.fake_line_numbers = fake_line_numbers
