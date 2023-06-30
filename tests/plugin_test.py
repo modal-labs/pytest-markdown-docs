@@ -180,3 +180,28 @@ def initialize_specific():
     )
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=1)
+
+
+def test_non_existing_fixture_error(testdir):
+    testdir.makeconftest(
+        """
+import pytest
+
+@pytest.fixture()
+def foo():
+    pass
+"""
+    )
+
+    testdir.makefile(
+        ".md",
+        """
+        \"\"\"
+        ```python fixture:bar
+        ```
+        \"\"\"
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    assert "fixture 'bar' not found" in result.stdout.str()
+    result.assert_outcomes(errors=1)
