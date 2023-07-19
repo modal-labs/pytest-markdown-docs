@@ -11,7 +11,7 @@ include = ["LICENSE"]
 
 [tool.poetry.dependencies]
 python = "^3.7"
-markdown-it-py = "~=2.2.0"
+markdown-it-py = ">=2.2.0, <4.0"
 
 [tool.poetry.plugins]
 
