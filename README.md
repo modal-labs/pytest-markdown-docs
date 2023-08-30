@@ -61,7 +61,7 @@ pytest --markdown-docs -m markdown-docs
 
 ### Detection conditions
 
-Fence blocks (` ``` `) starting with the `python`, `python3` or `py` language definitions are detected as tests in:
+Fence blocks (` ``` `) starting with the `python`, `python3`, `pycon`, or `py` language definitions are detected as tests in:
 
 * Python (.py) files, within docstrings of classes and functions
 * `.md`, `.mdx` and `.svx` files

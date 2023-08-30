@@ -17,6 +17,10 @@ def test_docstring_markdown(testdir):
             import pytest_markdown_docs
             pytest_markdown_docs.side_effect = "hello"
             ```
+            
+            ```pycon
+            >>> assert a + " world" == "hello world"
+            ```
 
             ```
             not a python block
@@ -48,7 +52,7 @@ def test_docstring_markdown(testdir):
     """
     )
     result = testdir.runpytest("--markdown-docs")
-    result.assert_outcomes(passed=2, failed=2)
+    result.assert_outcomes(passed=3, failed=2)
     assert (
         getattr(pytest_markdown_docs, "side_effect", None) == "hello"
     )  # hack to make sure the test actually does something
@@ -69,13 +73,17 @@ def test_markdown_text_file(testdir):
         ```python
         assert a + " world" == "hello world"
         ```
+        
+        ```pycon
+        >>> assert a + " world" == "hello world"
+        ```
         \"\"\"
     """,
     )
 
     # run all tests with pytest
     result = testdir.runpytest("--markdown-docs")
-    result.assert_outcomes(passed=1)
+    result.assert_outcomes(passed=2)
 
 
 def test_traceback(testdir):

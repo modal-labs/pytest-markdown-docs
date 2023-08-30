@@ -156,7 +156,7 @@ def extract_code_blocks(
 
         lang = code_info[0] if code_info else None
 
-        if lang in ("py", "python", "python3") and not "notest" in code_info:
+        if lang in ("py", "python", "python3", "pycon") and not "notest" in code_info:
             code_block = block.content
 
             if "continuation" in code_info:
