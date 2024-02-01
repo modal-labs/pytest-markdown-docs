@@ -11,7 +11,7 @@ from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
 
 from pytest_markdown_docs import hooks
-from _pytest.fixtures import FixtureRequest
+from _pytest.fixtures import TopRequest
 
 MARKER_NAME = "markdown-docs"
 
@@ -34,6 +34,8 @@ class MarkdownInlinePythonItem(pytest.Item):
         self.start_line = start_line
         self.fake_line_numbers = fake_line_numbers
 
+        self.fixturenames = ()
+        self.nofuncargs = True
         self.usefixtures = usefixtures
         self.add_marker(pytest.mark.usefixtures(*usefixtures))
 
@@ -43,9 +45,9 @@ class MarkdownInlinePythonItem(pytest.Item):
 
         self.funcargs = {}
         self._fixtureinfo = self.session._fixturemanager.getfixtureinfo(
-            node=self, func=func, cls=None, funcargs=False
+            node=self, func=func, cls=None
         )
-        self.fixture_request = FixtureRequest(self, _ispytest=True)
+        self.fixture_request = TopRequest(self, _ispytest=True)
         self.fixture_request._fillfixtures()
 
     def runtest(self):
@@ -166,7 +168,7 @@ def extract_code_blocks(
                 )  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
 
             fixture_names = [
-                f[len("fixture:") :] for f in code_info if f.startswith("fixture:")
+                f[len("fixture:"):] for f in code_info if f.startswith("fixture:")
             ]
             yield code_block, fixture_names, startline
             prev = code_block
