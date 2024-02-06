@@ -88,7 +88,6 @@ def test_traceback(testdir):
     testdir.makefile(
         ".md",
         """
-        \"\"\"
         yada yada yada
 
         ```python
@@ -100,28 +99,28 @@ def test_traceback(testdir):
 
         foo()
         ```
-        \"\"\"
     """,
     )
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=0, failed=1)
 
+    # we check the traceback vs a regex pattern since the file paths can change
     expected_output_pattern = r"""
 Error in code block:
 ```
- 5   def foo\(\):
- 6       raise Exception\("doh"\)
- 7
- 8   def bar\(\):
- 9       foo\(\)
-10
-11   foo\(\)
-12
+ 4   def foo\(\):
+ 5       raise Exception\("doh"\)
+ 6
+ 7   def bar\(\):
+ 8       foo\(\)
+ 9
+10   foo\(\)
+11
 ```
 Traceback \(most recent call last\):
-  File ".*/test_traceback.md", line 11, in <module>
+  File ".*/test_traceback.md", line 10, in <module>
     foo\(\)
-  File ".*/test_traceback.md", line 6, in foo
+  File ".*/test_traceback.md", line 5, in foo
     raise Exception\("doh"\)
 Exception: doh
 """.strip()
@@ -146,12 +145,10 @@ def initialize():
     testdir.makefile(
         ".md",
         """
-        \"\"\"
         ```python
         import pytest_markdown_docs
         assert pytest_markdown_docs.bump == 1
         ```
-        \"\"\"
     """,
     )
     result = testdir.runpytest("--markdown-docs")
