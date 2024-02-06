@@ -9,7 +9,7 @@ import typing
 from _pytest._code import ExceptionInfo
 from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
-
+from _pytest.fixtures import FixtureLookupError
 from pytest_markdown_docs import hooks
 from _pytest.fixtures import TopRequest
 
@@ -22,7 +22,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         name: str,
         parent: typing.Union["MarkdownDocstringCodeModule", "MarkdownTextFile"],
         code: str,
-        usefixtures: typing.List[str],
+        fixture_names: typing.List[str],
         start_line: int,
         fake_line_numbers: bool,
     ) -> None:
@@ -33,11 +33,8 @@ class MarkdownInlinePythonItem(pytest.Item):
         self.user_properties.append(("code", code))
         self.start_line = start_line
         self.fake_line_numbers = fake_line_numbers
-
-        self.fixturenames = ()
+        self.fixturenames = fixture_names
         self.nofuncargs = True
-        self.usefixtures = usefixtures
-        self.add_marker(pytest.mark.usefixtures(*usefixtures))
 
     def setup(self):
         def func() -> None:
@@ -58,9 +55,16 @@ class MarkdownInlinePythonItem(pytest.Item):
         for global_set in global_sets:
             all_globals.update(global_set)
 
-        for fixture_name in self.usefixtures:
-            fixture_value = self.fixture_request.getfixturevalue(fixture_name)
-            all_globals[fixture_name] = fixture_value
+        # make sure to evaluate fixtures
+        # this will insert named fixtures into self.funcargs
+        for fixture_name in self._fixtureinfo.names_closure:
+            self.fixture_request.getfixturevalue(fixture_name)
+
+        # Since these are not actual functions with arguments, the only
+        # arguments that should appear in self.funcargs are the filled fixtures
+        for argname, value in self.funcargs.items():
+            if argname not in all_globals:
+                all_globals[argname] = value
 
         try:
             tree = ast.parse(self.code)
@@ -68,7 +72,7 @@ class MarkdownInlinePythonItem(pytest.Item):
             return
 
         try:
-            # if we don't compile the code, it seems we gate name lookup errors
+            # if we don't compile the code, it seems we get name lookup errors
             # for functions etc. when doing cross-calls across inline functions
             compiled = compile(tree, self.name, "exec", dont_inherit=True)
         except SyntaxError:
@@ -204,7 +208,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
                 self,
                 name=f"{self.path}#{i+1}",
                 code=test_code,
-                usefixtures=fixture_names,
+                fixture_names=fixture_names,
                 start_line=start_line,
                 fake_line_numbers=True,  # TODO: figure out where docstrings are in file to offset line numbers properly
             )
@@ -221,7 +225,7 @@ class MarkdownTextFile(pytest.File):
                 self,
                 name=str(self.path),
                 code=code_block,
-                usefixtures=fixture_names,
+                fixture_names=fixture_names,
                 start_line=start_line,
                 fake_line_numbers=start_line == -1,
             )
