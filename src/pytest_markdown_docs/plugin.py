@@ -10,12 +10,13 @@ from _pytest._code import ExceptionInfo
 from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
 from pytest_markdown_docs import hooks
+
 try:
     # pytest 8
     from _pytest.fixtures import TopRequest
 except ImportError:
     # pytest 7 compatible
-    from _pytest.fixtures import FixtureRequest as TopRequest
+    from _pytest.fixtures import FixtureRequest as TopRequest  # type: ignore
 
 
 MARKER_NAME = "markdown-docs"
@@ -167,17 +168,15 @@ def extract_code_blocks(
 
         lang = code_info[0] if code_info else None
 
-        if lang in ("py", "python", "python3") and not "notest" in code_info:
+        if lang in ("py", "python", "python3") and "notest" not in code_info:
             code_block = block.content
 
             if "continuation" in code_info:
                 code_block = prev + code_block
-                startline = (
-                    -1
-                )  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
+                startline = -1  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
 
             fixture_names = [
-                f[len("fixture:"):] for f in code_info if f.startswith("fixture:")
+                f[len("fixture:") :] for f in code_info if f.startswith("fixture:")
             ]
             yield code_block, fixture_names, startline
             prev = code_block
