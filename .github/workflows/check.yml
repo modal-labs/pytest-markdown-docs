@@ -1,4 +1,4 @@
-name: Unittests, formatting checks and mypy
+name: ruff & mypy
 on: push
 
 jobs:
