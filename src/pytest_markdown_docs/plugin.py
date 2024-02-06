@@ -23,6 +23,7 @@ MARKER_NAME = "markdown-docs"
 
 
 class MarkdownInlinePythonItem(pytest.Item):
+
     def __init__(
         self,
         name: str,
