@@ -205,7 +205,3 @@ def foo():
     result = testdir.runpytest("--markdown-docs")
     assert "fixture 'bar' not found" in result.stdout.str()
     result.assert_outcomes(errors=1)
-
-
-def test_ci_fails():
-    assert False

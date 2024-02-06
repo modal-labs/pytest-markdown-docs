@@ -19,10 +19,12 @@ markdown-it-py = ">=2.2.0, <4.0"
 "pytest_markdown_docs" = "pytest_markdown_docs.plugin"
 
 [tool.poetry.group.dev.dependencies]
-mypy = "^0.971"
-pytest = "^8.0.0"
 ruff = "^0.2.1"
-# would be nice if we could specify pre-commit here too, but it requires Python 3.9
+mypy = "^1.8.0"
+pre-commit = [
+    {version="*", python=">=3.9.0"}  # pre-commit only available for Python >= 3.9
+]
+pytest = "^8.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.1.0"]
