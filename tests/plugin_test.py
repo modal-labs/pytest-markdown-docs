@@ -65,17 +65,23 @@ def test_markdown_text_file(testdir):
     testdir.makefile(
         ".md",
         """
-        \"\"\"
         ```python
         assert a + " world" == "hello world"
         ```
-        \"\"\"
+
+        ```python
+        assert False
+        ```
+
+        ```python
+        **@ # this is a syntax error
+        ```
     """,
     )
 
     # run all tests with pytest
     result = testdir.runpytest("--markdown-docs")
-    result.assert_outcomes(passed=1)
+    result.assert_outcomes(passed=1, failed=2)
 
 
 def test_traceback(testdir):

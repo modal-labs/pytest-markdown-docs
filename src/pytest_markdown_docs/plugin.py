@@ -74,16 +74,17 @@ class MarkdownInlinePythonItem(pytest.Item):
         try:
             tree = ast.parse(self.code)
         except SyntaxError:
-            return
+            raise
 
         try:
             # if we don't compile the code, it seems we get name lookup errors
             # for functions etc. when doing cross-calls across inline functions
             compiled = compile(tree, self.name, "exec", dont_inherit=True)
         except SyntaxError:
-            return
+            raise
 
         exec(compiled, all_globals)
+
 
     def repr_failure(
         self,
