@@ -124,7 +124,7 @@ Traceback \(most recent call last\):
     raise Exception\("doh"\)
 Exception: doh
 """.strip()
-    pytest_output = "\n".join(l.rstrip() for l in result.outlines).strip()
+    pytest_output = "\n".join(line.rstrip() for line in result.outlines).strip()
     assert re.search(expected_output_pattern, pytest_output) is not None
 
 
