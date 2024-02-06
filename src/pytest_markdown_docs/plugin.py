@@ -86,7 +86,6 @@ class MarkdownInlinePythonItem(pytest.Item):
 
         exec(compiled, all_globals)
 
-
     def repr_failure(
         self,
         excinfo: ExceptionInfo[BaseException],
