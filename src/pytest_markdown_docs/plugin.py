@@ -9,9 +9,14 @@ import typing
 from _pytest._code import ExceptionInfo
 from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
-from _pytest.fixtures import FixtureLookupError
 from pytest_markdown_docs import hooks
-from _pytest.fixtures import TopRequest
+try:
+    # pytest 8
+    from _pytest.fixtures import TopRequest
+except ImportError:
+    # pytest 7 compatible
+    from _pytest.fixtures import FixtureRequest as TopRequest
+
 
 MARKER_NAME = "markdown-docs"
 
