@@ -78,10 +78,25 @@ def test_markdown_text_file(testdir):
         ```
     """,
     )
-
-    # run all tests with pytest
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=1, failed=2)
+
+
+def test_continuation(testdir):
+    testdir.makefile(
+        ".md",
+        """
+        ```python
+        b = "hello"
+        ```
+
+        ```python continuation
+        assert b + " world" == "hello world"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
 
 
 def test_traceback(testdir):
