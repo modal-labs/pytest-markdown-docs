@@ -11,10 +11,10 @@ from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
 from pytest_markdown_docs import hooks
 
-try:
-    # pytest 8
+
+if pytest.version_tuple >= (8, 0, 0):
     from _pytest.fixtures import TopRequest
-except ImportError:
+else:
     # pytest 7 compatible
     from _pytest.fixtures import FixtureRequest as TopRequest  # type: ignore
 
@@ -204,7 +204,15 @@ def find_object_tests_recursive(
 
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
-        module = import_path(self.path, root=self.config.rootpath)
+        if pytest.version_tuple >= (8, 1, 0):
+            # consider_namespace_packages is a required keyword argument in pytest 8.1.0
+            module = import_path(
+                self.path, root=self.config.rootpath, consider_namespace_packages=True
+            )
+        else:
+            # but unsupported before 8.1...
+            module = import_path(self.path, root=self.config.rootpath)
+
         for i, (test_code, fixture_names, start_line) in enumerate(
             find_object_tests_recursive(module.__name__, module.__name__, module)
         ):
@@ -236,11 +244,11 @@ class MarkdownTextFile(pytest.File):
 
 
 def pytest_collect_file(
-    path,
+    file_path,
     parent,
 ):
     if parent.config.option.markdowndocs:
-        pathlib_path = pathlib.Path(str(path))  # pytest 7/8 compat
+        pathlib_path = pathlib.Path(str(file_path))  # pytest 7/8 compat
         if pathlib_path.suffix == ".py":
             return MarkdownDocstringCodeModule.from_parent(parent, path=pathlib_path)
         elif pathlib_path.suffix in (".md", ".mdx", ".svx"):
