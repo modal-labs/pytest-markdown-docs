@@ -25,7 +25,7 @@ mypy = "^1.8.0"
 pre-commit = [
     {version="*", python=">=3.9.0"}  # pre-commit only available for Python >= 3.9
 ]
-pytest = "^8.0.0"
+pytest = "8.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.1.0"]
