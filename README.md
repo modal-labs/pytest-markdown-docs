@@ -138,7 +138,7 @@ assert a + " world" == "hello world"
 
 ### Compatibility with Material for MkDocs
 
-Materials for mkdocs is not compatible with the default syntax.
+Material for Mkdocs is not compatible with the default syntax.
 
 But if the extension `pymdownx.superfences` is configured for mkdocs, the brace format can be used:
 ````markdown
