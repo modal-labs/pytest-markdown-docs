@@ -223,3 +223,25 @@ def foo():
     result = testdir.runpytest("--markdown-docs")
     assert "fixture 'bar' not found" in result.stdout.str()
     result.assert_outcomes(errors=1)
+
+
+def test_continuation_pymdown_superfences_format(testdir):
+    testdir.makefile(
+        ".md",
+        """
+        ```python
+        b = "hello"
+        ```
+
+        ```{.python continuation}
+        assert b + " world" == "hello world"
+        ```
+
+        # the lang may not be the first element
+        ```{other_option .python .other-class continuation}
+        assert b + " world" == "hello world"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=3)

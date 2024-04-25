@@ -164,7 +164,7 @@ def extract_code_blocks(
             continue
 
         startline = block.map[0] + 1  # skip the info line when counting
-        code_info = block.info.split()
+        code_info = parse_block_info(block.info)
 
         lang = code_info[0] if code_info else None
 
@@ -180,6 +180,26 @@ def extract_code_blocks(
             ]
             yield code_block, fixture_names, startline
             prev = code_block
+
+
+def parse_block_info(block_info: str) -> typing.List[str]:
+    block_info = block_info.strip()
+    # The default `python continuation` format is not compatible with Material for Mkdocs.
+    # But, PyMdown Superfences has a special brace format to add options to code fence blocks: `{.<lang> <option1> <option2>}`.
+    if block_info.startswith("{"):
+        block_info = block_info.strip("{").strip("}")
+        code_info = block_info.split()
+        # Lang may not be the first but is always the first element that starts with a dot.
+        # (https://facelessuser.github.io/pymdown-extensions/extensions/superfences/#injecting-classes-ids-and-attributes)
+        dot_lang = next(
+            (info_part for info_part in code_info if info_part.startswith(".")), None
+        )
+        if dot_lang:
+            code_info.remove(dot_lang)
+            lang = dot_lang[1:]
+            code_info.insert(0, lang)
+        return code_info
+    return block_info.split()
 
 
 def find_object_tests_recursive(
