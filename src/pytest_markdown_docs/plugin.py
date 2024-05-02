@@ -187,7 +187,7 @@ def parse_block_info(block_info: str) -> typing.List[str]:
     # The default `python continuation` format is not compatible with Material for Mkdocs.
     # But, PyMdown Superfences has a special brace format to add options to code fence blocks: `{.<lang> <option1> <option2>}`.
     if block_info.startswith("{"):
-        block_info = block_info.strip("{").strip("}")
+        block_info = block_info.strip("{}")
         code_info = block_info.split()
         # Lang may not be the first but is always the first element that starts with a dot.
         # (https://facelessuser.github.io/pymdown-extensions/extensions/superfences/#injecting-classes-ids-and-attributes)
