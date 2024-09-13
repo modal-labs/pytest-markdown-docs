@@ -19,6 +19,9 @@ else:
     from _pytest.fixtures import FixtureRequest as TopRequest  # type: ignore
 
 
+if typing.TYPE_CHECKING:
+    from markdown_it.token import Token
+
 MARKER_NAME = "markdown-docs"
 
 
@@ -158,7 +161,7 @@ def extract_code_blocks(
     tokens = mi.parse(markdown_string)
 
     prev = ""
-    for block in tokens:
+    for i, block in enumerate(tokens):
         if block.type != "fence" or not block.map:
             continue
 
@@ -166,19 +169,45 @@ def extract_code_blocks(
         code_info = block.info.split()
 
         lang = code_info[0] if code_info else None
+        code_options = set(code_info) - {lang}
 
-        if lang in ("py", "python", "python3") and "notest" not in code_info:
+        # MDX comments are put inside of a paragraph block, so we check the
+        # block two back to see if it's a comment as we the comment needs to
+        # be directly above the code block.
+        if i >= 2 and is_mdx_comment(tokens[i - 2]):
+            code_options |= extract_options_from_mdx_comment(tokens[i - 2].content)
+
+        if lang in ("py", "python", "python3") and "notest" not in code_options:
             code_block = block.content
 
-            if "continuation" in code_info:
+            if "continuation" in code_options:
                 code_block = prev + code_block
                 startline = -1  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
 
             fixture_names = [
-                f[len("fixture:") :] for f in code_info if f.startswith("fixture:")
+                f[len("fixture:") :] for f in code_options if f.startswith("fixture:")
             ]
             yield code_block, fixture_names, startline
             prev = code_block
+
+
+def is_mdx_comment(block: "Token") -> bool:
+    return (
+        block.type == "inline"
+        and block.content.strip().startswith("{/*")
+        and block.content.strip().endswith("*/}")
+        and "pmd-metadata:" in block.content
+    )
+
+
+def extract_options_from_mdx_comment(comment: str) -> typing.Set[str]:
+    comment = (
+        comment.strip()
+        .replace("{/*", "")
+        .replace("*/}", "")
+        .replace("pmd-metadata:", "")
+    )
+    return set(option.strip() for option in comment.split(" ") if option)
 
 
 def find_object_tests_recursive(

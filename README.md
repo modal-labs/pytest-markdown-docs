@@ -136,6 +136,25 @@ assert a + " world" == "hello world"
 ```
 ````
 
+## MDX Comments for Metadata Options
+In .mdx files, you can use MDX comments to provide additional options for code blocks. These comments should be placed immediately before the code block and take the following form:
+
+```mdx
+{/* pmd-metadata: notest fixture:capsys */}
+```python
+print("hello")
+captured = capsys.readouterr()
+assert captured.out == "hello\n"
+```
+
+The following options can be specified using MDX comments:
+
+* notest: Exclude the code block from testing.
+* fixture:<name>: Apply named pytest fixtures to the code block.
+* continuation: Continue from the previous code block, allowing you to carry over state.
+
+This approach allows you to add metadata to the code block without modifying the code fence itself, making it particularly useful in MDX environments.
+
 ## Testing of this plugin
 
 You can test this module itself (sadly not using markdown tests at the moment) using pytest:
