@@ -69,8 +69,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         # Since these are not actual functions with arguments, the only
         # arguments that should appear in self.funcargs are the filled fixtures
         for argname, value in self.funcargs.items():
-            if argname not in all_globals:
-                all_globals[argname] = value
+            all_globals[argname] = value
 
         try:
             tree = ast.parse(self.code)
