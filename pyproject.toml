@@ -21,11 +21,11 @@ pytest = ">=7.0.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.2.1"
-mypy = "^1.8.0"
+mypy = "^1.8"
 pre-commit = [
     {version="*", python=">=3.9.0"}  # pre-commit only available for Python >= 3.9
 ]
-pytest = "8.1.0"
+pytest = "^8.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.1.0"]

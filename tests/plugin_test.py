@@ -223,3 +223,37 @@ def foo():
     result = testdir.runpytest("--markdown-docs")
     assert "fixture 'bar' not found" in result.stdout.str()
     result.assert_outcomes(errors=1)
+
+
+def test_fixture_overriding_global(testdir):
+    testdir.makeconftest(
+        """
+import pytest
+
+def pytest_markdown_docs_globals():
+    return {
+        "some_global": "foo"
+    }
+
+@pytest.fixture()
+def some_global():
+    return "bar"
+"""
+    )
+
+    testdir.makefile(
+        ".md",
+        """
+        \"\"\"
+        ```python
+        assert some_global == "foo"
+        ```
+
+        ```python fixture:some_global
+        assert some_global == "bar"
+        ```
+        \"\"\"
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
