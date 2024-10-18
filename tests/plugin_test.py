@@ -257,3 +257,94 @@ def some_global():
     )
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=2)
+
+
+def test_continuation_mdx_comment(testdir):
+    testdir.makefile(
+        ".mdx",
+        """
+        ```python
+        b = "hello"
+        ```
+        {/* pmd-metadata: continuation */}
+        ```python
+        assert b + " world" == "hello world"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
+
+
+def test_specific_fixture_mdx_comment(testdir):
+    testdir.makeconftest(
+        """
+import pytest
+@pytest.fixture()
+def initialize_specific():
+    import pytest_markdown_docs
+    pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
+    yield "foobar"
+    pytest_markdown_docs.bump -= 1
+"""
+    )
+
+    testdir.makefile(
+        ".mdx",
+        """
+        {/* pmd-metadata: fixture:initialize_specific */}
+        ```python
+        import pytest_markdown_docs
+        assert pytest_markdown_docs.bump == 1
+        assert initialize_specific == "foobar"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_multiple_fixtures_mdx_comment(testdir):
+    testdir.makeconftest(
+        """
+import pytest
+@pytest.fixture()
+def initialize_specific():
+    import pytest_markdown_docs
+    pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
+    yield "foobar"
+    pytest_markdown_docs.bump -= 1
+
+@pytest.fixture
+def another_fixture():
+    return "hello"
+"""
+    )
+
+    testdir.makefile(
+        ".mdx",
+        """
+        {/* pmd-metadata: fixture:initialize_specific fixture:another_fixture */}
+        ```python
+        import pytest_markdown_docs
+        assert pytest_markdown_docs.bump == 1
+        assert initialize_specific == "foobar"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_notest_mdx_comment(testdir):
+    testdir.makefile(
+        ".mdx",
+        """
+        {/* pmd-metadata: notest */}
+        ```python
+        assert True
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=0)
