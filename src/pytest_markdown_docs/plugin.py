@@ -154,6 +154,7 @@ class MarkdownInlinePythonItem(pytest.Item):
 
 def extract_code_blocks(
     markdown_string: str,
+    markdown_type: str = "md",
 ) -> typing.Generator[typing.Tuple[str, typing.List[str], int], None, None]:
     import markdown_it
 
@@ -171,11 +172,19 @@ def extract_code_blocks(
         lang = code_info[0] if code_info else None
         code_options = set(code_info) - {lang}
 
-        # MDX comments are put inside of a paragraph block, so we check the
-        # block two back to see if it's a comment as we the comment needs to
-        # be directly above the code block.
-        if i >= 2 and is_mdx_comment(tokens[i - 2]):
-            code_options |= extract_options_from_mdx_comment(tokens[i - 2].content)
+        if markdown_type == "mdx":
+            # In MDX, comments are enclosed within a paragraph block and must be
+            # placed directly above the corresponding code fence. The token
+            # sequence is as follows:
+            #   i-3: paragraph_open
+            #   i-2: comment
+            #   i-1: paragraph_close
+            #   i: code fence
+            #
+            # Therefore, to retrieve the MDX comment associated with the current
+            # code fence (at index `i`), we need to access the token at `i - 2`.
+            if i >= 2 and is_mdx_comment(tokens[i - 2]):
+                code_options |= extract_options_from_mdx_comment(tokens[i - 2].content)
 
         if lang in ("py", "python", "python3") and "notest" not in code_options:
             code_block = block.content
@@ -259,7 +268,7 @@ class MarkdownTextFile(pytest.File):
         markdown_content = self.path.read_text("utf8")
 
         for code_block, fixture_names, start_line in extract_code_blocks(
-            markdown_content
+            markdown_content, markdown_type=self.path.suffix.replace(".", "")
         ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,

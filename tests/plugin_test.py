@@ -322,7 +322,7 @@ def another_fixture():
     )
 
     testdir.makefile(
-        ".md",
+        ".mdx",
         """
         {/* pmd-metadata: fixture:initialize_specific fixture:another_fixture */}
         ```python
