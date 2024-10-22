@@ -30,5 +30,3 @@ dev-dependencies = [
     "pytest~=8.1.0",
     "ruff>=0.7.0",
 ]
-
-
