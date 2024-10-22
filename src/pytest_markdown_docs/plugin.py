@@ -75,14 +75,14 @@ class MarkdownInlinePythonItem(pytest.Item):
             all_globals[argname] = value
 
         try:
-            tree = ast.parse(self.code)
+            tree = ast.parse(self.code, filename=self.path)
         except SyntaxError:
             raise
 
         try:
             # if we don't compile the code, it seems we get name lookup errors
             # for functions etc. when doing cross-calls across inline functions
-            compiled = compile(tree, self.name, "exec", dont_inherit=True)
+            compiled = compile(tree, filename=self.path, mode="exec", dont_inherit=True)
         except SyntaxError:
             raise
 
@@ -103,7 +103,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         start_line = 0 if self.fake_line_numbers else self.start_line
 
         for frame_summary in stack_summary:
-            if frame_summary.filename == self.name:
+            if frame_summary.filename == str(self.path):
                 lineno = (frame_summary.lineno or 0) + start_line
                 start_capture = (
                     True  # start capturing frames the first time we enter user code
@@ -149,7 +149,7 @@ class MarkdownInlinePythonItem(pytest.Item):
 """
 
     def reportinfo(self):
-        return self.name, 0, f"docstring for {self.name}"
+        return self.name, 0, self.nodeid
 
 
 def extract_code_blocks(
