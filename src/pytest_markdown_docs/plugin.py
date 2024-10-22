@@ -222,13 +222,13 @@ def extract_options_from_mdx_comment(comment: str) -> typing.Set[str]:
 def find_object_tests_recursive(
     module_name: str, object: typing.Any
 ) -> typing.Generator[
-    typing.Tuple[typing.Any, typing.Tuple[str, typing.List[str], int]], None, None
+    typing.Tuple[int, typing.Any, typing.Tuple[str, typing.List[str], int]], None, None
 ]:
     docstr = inspect.getdoc(object)
 
     if docstr:
-        for code_block in extract_code_blocks(docstr):
-            yield object, code_block
+        for i, code_block in enumerate(extract_code_blocks(docstr)):
+            yield i, object, code_block
 
     for member_name, member in inspect.getmembers(object):
         if member_name.startswith("_"):
@@ -253,9 +253,11 @@ class MarkdownDocstringCodeModule(pytest.Module):
             # but unsupported before 8.1...
             module = import_path(self.path, root=self.config.rootpath)
 
-        for i, (obj, (test_code, fixture_names, start_line)) in enumerate(
-            find_object_tests_recursive(module.__name__, module)
-        ):
+        for code_block_idx, obj, (
+            test_code,
+            fixture_names,
+            start_line,
+        ) in find_object_tests_recursive(module.__name__, module):
             obj_name = (
                 getattr(obj, "__qualname__", None)
                 or getattr(obj, "__name__", None)
@@ -263,7 +265,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
             )
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"{obj_name}[CodeBlock#{i+1}][rel.line:{start_line}]",
+                name=f"{obj_name}[CodeBlock#{code_block_idx+1}][rel.line:{start_line}]",
                 code=test_code,
                 fixture_names=fixture_names,
                 start_line=start_line,
