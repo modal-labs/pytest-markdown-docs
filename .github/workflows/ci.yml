@@ -8,22 +8,24 @@ jobs:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
       - name: Install Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.7.1
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-      - name: Install packages
-        run: poetry install
+
+      - name: Install the project
+        run: uv sync --all-extras --dev
+
       - name: Run tests with pytest
-        run: poetry run pytest
+        run: uv run pytest
+
       - name: Downgrade to pytest 7
-        run: poetry run pip install pytest==7.4.4
+        run: uv pip install "pytest<8"
+
       - name: Run tests with pytest 7
-        run: poetry run pytest
+        run: uv run pytest
