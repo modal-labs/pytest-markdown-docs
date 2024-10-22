@@ -140,7 +140,9 @@ Traceback \(most recent call last\):
 Exception: doh
 """.strip()
     pytest_output = "\n".join(line.rstrip() for line in result.outlines).strip()
-    assert re.search(expected_output_pattern, pytest_output) is not None
+    assert (
+        re.search(expected_output_pattern, pytest_output) is not None
+    ), "Output traceback doesn't match expected value"
 
 
 def test_autouse_fixtures(testdir):
