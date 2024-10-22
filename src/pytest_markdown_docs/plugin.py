@@ -220,12 +220,15 @@ def extract_options_from_mdx_comment(comment: str) -> typing.Set[str]:
 
 
 def find_object_tests_recursive(
-    module_name: str, object_name: str, object: typing.Any
-) -> typing.Generator[typing.Tuple[str, typing.List[str], int], None, None]:
+    module_name: str, object: typing.Any
+) -> typing.Generator[
+    typing.Tuple[typing.Any, typing.Tuple[str, typing.List[str], int]], None, None
+]:
     docstr = inspect.getdoc(object)
 
     if docstr:
-        yield from extract_code_blocks(docstr)
+        for code_block in extract_code_blocks(docstr):
+            yield object, code_block
 
     for member_name, member in inspect.getmembers(object):
         if member_name.startswith("_"):
@@ -236,7 +239,7 @@ def find_object_tests_recursive(
             or inspect.isfunction(member)
             or inspect.ismethod(member)
         ) and member.__module__ == module_name:
-            yield from find_object_tests_recursive(module_name, member_name, member)
+            yield from find_object_tests_recursive(module_name, member)
 
 
 class MarkdownDocstringCodeModule(pytest.Module):
@@ -250,12 +253,17 @@ class MarkdownDocstringCodeModule(pytest.Module):
             # but unsupported before 8.1...
             module = import_path(self.path, root=self.config.rootpath)
 
-        for i, (test_code, fixture_names, start_line) in enumerate(
-            find_object_tests_recursive(module.__name__, module.__name__, module)
+        for i, (obj, (test_code, fixture_names, start_line)) in enumerate(
+            find_object_tests_recursive(module.__name__, module)
         ):
+            obj_name = (
+                getattr(obj, "__qualname__", None)
+                or getattr(obj, "__name__", None)
+                or "<Unnamed obj>"
+            )
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"{self.path}#{i+1}",
+                name=f"{obj_name}[CodeBlock#{i+1}][rel.line:{start_line}]",
                 code=test_code,
                 fixture_names=fixture_names,
                 start_line=start_line,
@@ -267,12 +275,14 @@ class MarkdownTextFile(pytest.File):
     def collect(self):
         markdown_content = self.path.read_text("utf8")
 
-        for code_block, fixture_names, start_line in extract_code_blocks(
-            markdown_content, markdown_type=self.path.suffix.replace(".", "")
+        for i, (code_block, fixture_names, start_line) in enumerate(
+            extract_code_blocks(
+                markdown_content, markdown_type=self.path.suffix.replace(".", "")
+            )
         ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=str(self.path),
+                name=f"[CodeBlock#{i+1}][line:{start_line}]",
                 code=code_block,
                 fixture_names=fixture_names,
                 start_line=start_line,
