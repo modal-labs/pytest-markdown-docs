@@ -5,6 +5,7 @@ import types
 import pathlib
 import pytest
 import typing
+from enum import Enum
 
 from _pytest._code import ExceptionInfo
 from _pytest.config.argparsing import Parser
@@ -23,6 +24,11 @@ if typing.TYPE_CHECKING:
     from markdown_it.token import Token
 
 MARKER_NAME = "markdown-docs"
+
+
+class FenceSyntax(Enum):
+    default = "default"
+    superfences = "superfences"
 
 
 class MarkdownInlinePythonItem(pytest.Item):
@@ -155,6 +161,7 @@ class MarkdownInlinePythonItem(pytest.Item):
 def extract_code_blocks(
     markdown_string: str,
     markdown_type: str = "md",
+    fence_syntax: FenceSyntax = FenceSyntax.default,
 ) -> typing.Generator[typing.Tuple[str, typing.List[str], int], None, None]:
     import markdown_it
 
@@ -167,7 +174,10 @@ def extract_code_blocks(
             continue
 
         startline = block.map[0] + 1  # skip the info line when counting
-        code_info = parse_block_info(block.info)
+        if fence_syntax == FenceSyntax.default:
+            code_info = block.info.split()
+        elif fence_syntax == FenceSyntax.superfences:
+            code_info = parse_superfences_block_info(block.info)
 
         lang = code_info[0] if code_info else None
         code_options = set(code_info) - {lang}
@@ -200,24 +210,32 @@ def extract_code_blocks(
             prev = code_block
 
 
-def parse_block_info(block_info: str) -> typing.List[str]:
+def parse_superfences_block_info(block_info: str) -> typing.List[str]:
+    """Parse PyMdown Superfences block info syntax.
+
+    The default `python continuation` format is not compatible with Material for Mkdocs.
+    But, PyMdown Superfences has a special brace format to add options to code fence blocks: `{.<lang> <option1> <option2>}`.
+
+    This function also works if the default syntax is used to allow for mixed usage.
+    """
     block_info = block_info.strip()
-    # The default `python continuation` format is not compatible with Material for Mkdocs.
-    # But, PyMdown Superfences has a special brace format to add options to code fence blocks: `{.<lang> <option1> <option2>}`.
-    if block_info.startswith("{"):
-        block_info = block_info.strip("{}")
-        code_info = block_info.split()
-        # Lang may not be the first but is always the first element that starts with a dot.
-        # (https://facelessuser.github.io/pymdown-extensions/extensions/superfences/#injecting-classes-ids-and-attributes)
-        dot_lang = next(
-            (info_part for info_part in code_info if info_part.startswith(".")), None
-        )
-        if dot_lang:
-            code_info.remove(dot_lang)
-            lang = dot_lang[1:]
-            code_info.insert(0, lang)
-        return code_info
-    return block_info.split()
+
+    if not block_info.startswith("{"):
+        # default syntax
+        return block_info.split()
+
+    block_info = block_info.strip("{}")
+    code_info = block_info.split()
+    # Lang may not be the first but is always the first element that starts with a dot.
+    # (https://facelessuser.github.io/pymdown-extensions/extensions/superfences/#injecting-classes-ids-and-attributes)
+    dot_lang = next(
+        (info_part for info_part in code_info if info_part.startswith(".")), None
+    )
+    if dot_lang:
+        code_info.remove(dot_lang)
+        lang = dot_lang[1:]
+        code_info.insert(0, lang)
+    return code_info
 
 
 def is_mdx_comment(block: "Token") -> bool:
@@ -239,29 +257,6 @@ def extract_options_from_mdx_comment(comment: str) -> typing.Set[str]:
     return set(option.strip() for option in comment.split(" ") if option)
 
 
-def find_object_tests_recursive(
-    module_name: str, object: typing.Any
-) -> typing.Generator[
-    typing.Tuple[int, typing.Any, typing.Tuple[str, typing.List[str], int]], None, None
-]:
-    docstr = inspect.getdoc(object)
-
-    if docstr:
-        for i, code_block in enumerate(extract_code_blocks(docstr)):
-            yield i, object, code_block
-
-    for member_name, member in inspect.getmembers(object):
-        if member_name.startswith("_"):
-            continue
-
-        if (
-            inspect.isclass(member)
-            or inspect.isfunction(member)
-            or inspect.ismethod(member)
-        ) and member.__module__ == module_name:
-            yield from find_object_tests_recursive(module_name, member)
-
-
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
         if pytest.version_tuple >= (8, 1, 0):
@@ -277,7 +272,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
             test_code,
             fixture_names,
             start_line,
-        ) in find_object_tests_recursive(module.__name__, module):
+        ) in self.find_object_tests_recursive(module.__name__, module):
             obj_name = (
                 getattr(obj, "__qualname__", None)
                 or getattr(obj, "__name__", None)
@@ -292,14 +287,44 @@ class MarkdownDocstringCodeModule(pytest.Module):
                 fake_line_numbers=True,  # TODO: figure out where docstrings are in file to offset line numbers properly
             )
 
+    def find_object_tests_recursive(
+        self, module_name: str, object: typing.Any
+    ) -> typing.Generator[
+        typing.Tuple[int, typing.Any, typing.Tuple[str, typing.List[str], int]],
+        None,
+        None,
+    ]:
+        docstr = inspect.getdoc(object)
+
+        if docstr:
+            fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
+            for i, code_block in enumerate(
+                extract_code_blocks(docstr, fence_syntax=fence_syntax)
+            ):
+                yield i, object, code_block
+
+        for member_name, member in inspect.getmembers(object):
+            if member_name.startswith("_"):
+                continue
+
+            if (
+                inspect.isclass(member)
+                or inspect.isfunction(member)
+                or inspect.ismethod(member)
+            ) and member.__module__ == module_name:
+                yield from self.find_object_tests_recursive(module_name, member)
+
 
 class MarkdownTextFile(pytest.File):
     def collect(self):
         markdown_content = self.path.read_text("utf8")
+        fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
 
         for i, (code_block, fixture_names, start_line) in enumerate(
             extract_code_blocks(
-                markdown_content, markdown_type=self.path.suffix.replace(".", "")
+                markdown_content,
+                markdown_type=self.path.suffix.replace(".", ""),
+                fence_syntax=fence_syntax,
             )
         ):
             yield MarkdownInlinePythonItem.from_parent(
@@ -340,6 +365,14 @@ def pytest_addoption(parser: Parser) -> None:
         default=False,
         help="run ",
         dest="markdowndocs",
+    )
+    group.addoption(
+        "--markdown-docs-syntax",
+        action="store",
+        choices=[choice.value for choice in FenceSyntax],
+        default="default",
+        help="Choose an alternative fences syntax",
+        dest="markdowndocs_syntax",
     )
 
 

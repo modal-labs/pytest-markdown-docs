@@ -145,6 +145,11 @@ But if the extension `pymdownx.superfences` is configured for mkdocs, the brace 
 ```{.python continuation}
 ````
 
+You will need to call pytest with the `--markdown-docs-syntax` option:
+```shell
+pytest --markdown-docs --markdown-docs-syntax=superfences
+```
+
 ## MDX Comments for Metadata Options
 In .mdx files, you can use MDX comments to provide additional options for code blocks. These comments should be placed immediately before the code block and take the following form:
 

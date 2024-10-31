@@ -352,7 +352,7 @@ def test_notest_mdx_comment(testdir):
     result.assert_outcomes(passed=0)
 
 
-def test_continuation_pymdown_superfences_format(testdir):
+def test_superfences_format_markdown(testdir):
     testdir.makefile(
         ".md",
         """
@@ -370,5 +370,24 @@ def test_continuation_pymdown_superfences_format(testdir):
         ```
     """,
     )
-    result = testdir.runpytest("--markdown-docs")
+    result = testdir.runpytest("--markdown-docs", "--markdown-docs-syntax=superfences")
     result.assert_outcomes(passed=3)
+
+
+def test_superfences_format_docstring(testdir):
+    testdir.makepyfile(
+        """
+        def simple():
+            \"\"\"
+            ```python
+            b = "hello"
+            ```
+
+            ```{.python continuation}
+            assert b + " world" == "hello world"
+            ```
+            \"\"\"
+        """
+    )
+    result = testdir.runpytest("--markdown-docs", "--markdown-docs-syntax=superfences")
+    result.assert_outcomes(passed=2)
