@@ -140,7 +140,9 @@ Traceback \(most recent call last\):
 Exception: doh
 """.strip()
     pytest_output = "\n".join(line.rstrip() for line in result.outlines).strip()
-    assert re.search(expected_output_pattern, pytest_output) is not None
+    assert (
+        re.search(expected_output_pattern, pytest_output) is not None
+    ), "Output traceback doesn't match expected value"
 
 
 def test_autouse_fixtures(testdir):
@@ -223,6 +225,131 @@ def foo():
     result = testdir.runpytest("--markdown-docs")
     assert "fixture 'bar' not found" in result.stdout.str()
     result.assert_outcomes(errors=1)
+
+
+def test_fixture_overriding_global(testdir):
+    testdir.makeconftest(
+        """
+import pytest
+
+def pytest_markdown_docs_globals():
+    return {
+        "some_global": "foo"
+    }
+
+@pytest.fixture()
+def some_global():
+    return "bar"
+"""
+    )
+
+    testdir.makefile(
+        ".md",
+        """
+        \"\"\"
+        ```python
+        assert some_global == "foo"
+        ```
+
+        ```python fixture:some_global
+        assert some_global == "bar"
+        ```
+        \"\"\"
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
+
+
+def test_continuation_mdx_comment(testdir):
+    testdir.makefile(
+        ".mdx",
+        """
+        ```python
+        b = "hello"
+        ```
+        {/* pmd-metadata: continuation */}
+        ```python
+        assert b + " world" == "hello world"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
+
+
+def test_specific_fixture_mdx_comment(testdir):
+    testdir.makeconftest(
+        """
+import pytest
+@pytest.fixture()
+def initialize_specific():
+    import pytest_markdown_docs
+    pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
+    yield "foobar"
+    pytest_markdown_docs.bump -= 1
+"""
+    )
+
+    testdir.makefile(
+        ".mdx",
+        """
+        {/* pmd-metadata: fixture:initialize_specific */}
+        ```python
+        import pytest_markdown_docs
+        assert pytest_markdown_docs.bump == 1
+        assert initialize_specific == "foobar"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_multiple_fixtures_mdx_comment(testdir):
+    testdir.makeconftest(
+        """
+import pytest
+@pytest.fixture()
+def initialize_specific():
+    import pytest_markdown_docs
+    pytest_markdown_docs.bump = getattr(pytest_markdown_docs, "bump", 0) + 1
+    yield "foobar"
+    pytest_markdown_docs.bump -= 1
+
+@pytest.fixture
+def another_fixture():
+    return "hello"
+"""
+    )
+
+    testdir.makefile(
+        ".mdx",
+        """
+        {/* pmd-metadata: fixture:initialize_specific fixture:another_fixture */}
+        ```python
+        import pytest_markdown_docs
+        assert pytest_markdown_docs.bump == 1
+        assert initialize_specific == "foobar"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_notest_mdx_comment(testdir):
+    testdir.makefile(
+        ".mdx",
+        """
+        {/* pmd-metadata: notest */}
+        ```python
+        assert True
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=0)
 
 
 def test_continuation_pymdown_superfences_format(testdir):
