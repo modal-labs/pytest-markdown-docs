@@ -174,10 +174,10 @@ def extract_code_blocks(
             continue
 
         startline = block.map[0] + 1  # skip the info line when counting
-        if fence_syntax == FenceSyntax.default:
-            code_info = block.info.split()
-        elif fence_syntax == FenceSyntax.superfences:
+        if fence_syntax == FenceSyntax.superfences:
             code_info = parse_superfences_block_info(block.info)
+        else:
+            code_info = block.info.split()
 
         lang = code_info[0] if code_info else None
         code_options = set(code_info) - {lang}
