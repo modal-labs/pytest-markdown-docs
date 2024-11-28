@@ -1,4 +1,7 @@
 import re
+
+from _pytest.pytester import LineMatcher
+
 import pytest_markdown_docs  # hack: used for storing a side effect in one of the tests
 
 
@@ -122,7 +125,7 @@ def test_traceback(testdir):
     # we check the traceback vs a regex pattern since the file paths can change
     expected_output_pattern = r"""
 Error in code block:
-```
+     ```
  4   def foo\(\):
  5       raise Exception\("doh"\)
  6
@@ -130,8 +133,7 @@ Error in code block:
  8       foo\(\)
  9
 10   foo\(\)
-11
-```
+     ```
 Traceback \(most recent call last\):
   File ".*/test_traceback.md", line 10, in <module>
     foo\(\)
@@ -391,3 +393,41 @@ def test_superfences_format_docstring(testdir):
     )
     result = testdir.runpytest("--markdown-docs", "--markdown-docs-syntax=superfences")
     result.assert_outcomes(passed=2)
+
+
+def test_error_origin_after_docstring_traceback(testdir, support_dir):
+    sample_file = support_dir / "docstring_error_after.py"
+    testdir.makepyfile(**{sample_file.stem: sample_file.read_text()})
+    result = testdir.runpytest("-v", "--markdown-docs")
+
+    data: LineMatcher = result.stdout
+    data.re_match_lines(
+        [
+            r"Traceback \(most recent call last\):",
+            r'\s*File ".*/docstring_error_after.py", line 5, in <module>',
+            r"\s*docstring_error_after.error_after\(\)",
+            r'\s*File ".*/docstring_error_after.py", line 10, in error_after',
+            r'\s*raise Exception\("bar"\)',
+            r"\s*Exception: bar",
+        ],
+        consecutive=True,
+    )
+
+
+def test_error_origin_before_docstring_traceback(testdir, support_dir):
+    sample_file = support_dir / "docstring_error_before.py"
+    testdir.makepyfile(**{sample_file.stem: sample_file.read_text()})
+    result = testdir.runpytest("-v", "--markdown-docs")
+
+    data: LineMatcher = result.stdout
+    data.re_match_lines(
+        [
+            r"Traceback \(most recent call last\):",
+            r'\s*File ".*/docstring_error_before.py", line 9, in <module>',
+            r"\s*docstring_error_before.error_before\(\)",
+            r'\s*File ".*/docstring_error_before.py", line 2, in error_before',
+            r'\s*raise Exception\("foo"\)',
+            r"\s*Exception: foo",
+        ],
+        consecutive=True,
+    )
