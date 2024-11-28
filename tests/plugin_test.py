@@ -406,7 +406,7 @@ def test_error_origin_after_docstring_traceback(testdir, support_dir):
             r"Traceback \(most recent call last\):",
             r'\s*File ".*/docstring_error_after.py", line 5, in <module>',
             r"\s*docstring_error_after.error_after\(\)",
-            r'\s*File ".*/docstring_error_after.py", line 10, in error_after',
+            r'\s*File ".*/docstring_error_after.py", line 11, in error_after',
             r'\s*raise Exception\("bar"\)',
             r"\s*Exception: bar",
         ],
