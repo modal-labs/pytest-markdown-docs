@@ -116,7 +116,8 @@ class MarkdownInlinePythonItem(pytest.Item):
                 )
                 line = (
                     rawlines[frame_summary.lineno - 1]
-                    if 1 <= frame_summary.lineno <= len(rawlines)
+                    if frame_summary.lineno is not None
+                    and 1 <= frame_summary.lineno <= len(rawlines)
                     else ""
                 )
             else:
