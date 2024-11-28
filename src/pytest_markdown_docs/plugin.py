@@ -12,6 +12,8 @@ from enum import Enum
 from _pytest._code import ExceptionInfo
 from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
+import logging
+
 from pytest_markdown_docs import hooks
 
 
@@ -25,6 +27,8 @@ else:
 if typing.TYPE_CHECKING:
     from markdown_it.token import Token
 
+logger = logging.getLogger("pytest-markdown-docs")
+
 MARKER_NAME = "markdown-docs"
 
 
@@ -35,7 +39,7 @@ class FenceSyntax(Enum):
 
 @dataclass
 class FenceTest:
-    code_block: str
+    source: str
     fixture_names: typing.List[str]
     start_line: int
 
@@ -47,6 +51,19 @@ class ObjectTest:
     fence_test: FenceTest
 
 
+def get_docstring_start_line(obj) -> typing.Optional[int]:
+    # Get the source lines and the starting line number of the object
+    source_lines, start_line = inspect.getsourcelines(obj)
+
+    # Find the line in the source code that starts with triple quotes (""" or ''')
+    for idx, line in enumerate(source_lines):
+        line = line.strip()
+        if line.startswith(('"""', "'''")):
+            return start_line + idx  # Return the starting line number
+
+    return None  # Docstring not found in source
+
+
 class MarkdownInlinePythonItem(pytest.Item):
     def __init__(
         self,
@@ -55,7 +72,6 @@ class MarkdownInlinePythonItem(pytest.Item):
         code: str,
         fixture_names: typing.List[str],
         start_line: int,
-        fake_line_numbers: bool,
     ) -> None:
         super().__init__(name, parent)
         self.add_marker(MARKER_NAME)
@@ -63,7 +79,6 @@ class MarkdownInlinePythonItem(pytest.Item):
         self.obj = None
         self.user_properties.append(("code", code))
         self.start_line = start_line
-        self.fake_line_numbers = fake_line_numbers
         self.fixturenames = fixture_names
         self.nofuncargs = True
 
@@ -115,61 +130,47 @@ class MarkdownInlinePythonItem(pytest.Item):
         excinfo: ExceptionInfo[BaseException],
         style=None,
     ):
-        rawlines = self.code.split("\n")
+        rawlines = self.code.rstrip("\n").split("\n")
 
         # custom formatted traceback to translate line numbers and markdown files
         traceback_lines = []
         stack_summary = traceback.StackSummary.extract(traceback.walk_tb(excinfo.tb))
         start_capture = False
 
-        start_line = 0 if self.fake_line_numbers else self.start_line
+        start_line = self.start_line
 
         for frame_summary in stack_summary:
             if frame_summary.filename == str(self.path):
-                lineno = (frame_summary.lineno or 0) + start_line
-                start_capture = (
-                    True  # start capturing frames the first time we enter user code
-                )
-                line = (
-                    rawlines[frame_summary.lineno - 1]
-                    if frame_summary.lineno is not None
-                    and 1 <= frame_summary.lineno <= len(rawlines)
-                    else ""
-                )
-            else:
-                lineno = frame_summary.lineno or 0
-                line = frame_summary.line or ""
+                # start capturing frames the first time we enter user code
+                start_capture = True
 
             if start_capture:
+                lineno = frame_summary.lineno
+                line = frame_summary.line or ""
                 linespec = f"line {lineno}"
-                if self.fake_line_numbers:
-                    linespec = f"code block line {lineno}*"
-
                 traceback_lines.append(
                     f"""  File "{frame_summary.filename}", {linespec}, in {frame_summary.name}"""
                 )
                 traceback_lines.append(f"    {line.lstrip()}")
 
-        maxnum = len(str(len(rawlines) + start_line + 1))
+        maxdigits = len(str(len(rawlines)))
+        code_margin = "   "
         numbered_code = "\n".join(
             [
-                f"{i:>{maxnum}}   {line}"
-                for i, line in enumerate(rawlines, start_line + 1)
+                f"{i:>{maxdigits}}{code_margin}{line}"
+                for i, line in enumerate(rawlines[start_line:], start_line + 1)
             ]
         )
 
         pretty_traceback = "\n".join(traceback_lines)
-        note = ""
-        if self.fake_line_numbers:
-            note = ", *-denoted line numbers refer to code block"
-        pt = f"""Traceback (most recent call last{note}):
+        pt = f"""Traceback (most recent call last):
 {pretty_traceback}
 {excinfo.exconly()}"""
 
         return f"""Error in code block:
-```
+{maxdigits * " "}{code_margin}```
 {numbered_code}
-```
+{maxdigits * " "}{code_margin}```
 {pt}
 """
 
@@ -179,6 +180,7 @@ class MarkdownInlinePythonItem(pytest.Item):
 
 def extract_fence_tests(
     markdown_string: str,
+    start_line_offset: int,
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
 ) -> typing.Generator[FenceTest, None, None]:
@@ -192,7 +194,6 @@ def extract_fence_tests(
         if block.type != "fence" or not block.map:
             continue
 
-        start_line = block.map[0] + 1  # skip the info line when counting
         if fence_syntax == FenceSyntax.superfences:
             code_info = parse_superfences_block_info(block.info)
         else:
@@ -216,11 +217,14 @@ def extract_fence_tests(
                 code_options |= extract_options_from_mdx_comment(tokens[i - 2].content)
 
         if lang in ("py", "python", "python3") and "notest" not in code_options:
-            code_block = block.content
+            start_line = (
+                start_line_offset + block.map[0] + 1
+            )  # actual code starts on +1 from the "info" line
+            if "continuation" not in code_options:
+                prev = ""
 
-            if "continuation" in code_options:
-                code_block = prev + code_block
-                start_line = -1  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
+            add_blank_lines = start_line - prev.count("\n")
+            code_block = prev + ("\n" * add_blank_lines) + block.content
 
             fixture_names = [
                 f[len("fixture:") :] for f in code_options if f.startswith("fixture:")
@@ -291,11 +295,10 @@ class MarkdownDocstringCodeModule(pytest.Module):
             fence_test = object_test.fence_test
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"{object_test.object_name}[CodeBlock#{object_test.intra_object_index+1}][rel.line:{fence_test.start_line}]",
-                code=fence_test.code_block,
+                name=f"{object_test.object_name}[CodeFence#{object_test.intra_object_index+1}][line:{fence_test.start_line}]",
+                code=fence_test.source,
                 fixture_names=fence_test.fixture_names,
                 start_line=fence_test.start_line,
-                fake_line_numbers=True,  # TODO: figure out where docstrings are in file to offset line numbers properly
             )
 
     def find_object_tests_recursive(
@@ -304,6 +307,13 @@ class MarkdownDocstringCodeModule(pytest.Module):
         docstr = inspect.getdoc(object)
 
         if docstr:
+            docstring_offset = get_docstring_start_line(object)
+            if docstring_offset is None:
+                logger.warning(
+                    "Could not find line number offset for docstring: {docstr}"
+                )
+                docstring_offset = 0
+
             obj_name = (
                 getattr(object, "__qualname__", None)
                 or getattr(object, "__name__", None)
@@ -311,7 +321,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
             )
             fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
             for i, fence_test in enumerate(
-                extract_fence_tests(docstr, fence_syntax=fence_syntax)
+                extract_fence_tests(docstr, docstring_offset, fence_syntax=fence_syntax)
             ):
                 yield ObjectTest(i, obj_name, fence_test)
 
@@ -335,17 +345,17 @@ class MarkdownTextFile(pytest.File):
         for i, fence_test in enumerate(
             extract_fence_tests(
                 markdown_content,
+                start_line_offset=0,
                 markdown_type=self.path.suffix.replace(".", ""),
                 fence_syntax=fence_syntax,
             )
         ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"[CodeBlock#{i+1}][line:{fence_test.start_line}]",
-                code=fence_test.code_block,
+                name=f"[CodeFence#{i+1}][line:{fence_test.start_line}]",
+                code=fence_test.source,
                 fixture_names=fence_test.fixture_names,
                 start_line=fence_test.start_line,
-                fake_line_numbers=fence_test.start_line == -1,
             )
 
 
