@@ -115,7 +115,10 @@ class MarkdownInlinePythonItem(pytest.Item):
                     True  # start capturing frames the first time we enter user code
                 )
                 line = (
-                    rawlines[frame_summary.lineno - 1] if frame_summary.lineno else ""
+                    rawlines[frame_summary.lineno - 1]
+                    if frame_summary.lineno is not None
+                    and 1 <= frame_summary.lineno <= len(rawlines)
+                    else ""
                 )
             else:
                 lineno = frame_summary.lineno or 0
