@@ -37,14 +37,14 @@ class FenceSyntax(Enum):
     superfences = "superfences"
 
 
-@dataclass
+@dataclass(frozen=True)
 class FenceTest:
     source: str
-    fixture_names: typing.List[str]
+    fixture_names: typing.Tuple[str, ...]
     start_line: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class ObjectTest:
     intra_object_index: int
     object_name: str
@@ -53,7 +53,10 @@ class ObjectTest:
 
 def get_docstring_start_line(obj) -> typing.Optional[int]:
     # Get the source lines and the starting line number of the object
-    source_lines, start_line = inspect.getsourcelines(obj)
+    try:
+        source_lines, start_line = inspect.getsourcelines(obj)
+    except OSError:
+        return None
 
     # Find the line in the source code that starts with triple quotes (""" or ''')
     for idx, line in enumerate(source_lines):
@@ -226,9 +229,9 @@ def extract_fence_tests(
             add_blank_lines = start_line - prev.count("\n")
             code_block = prev + ("\n" * add_blank_lines) + block.content
 
-            fixture_names = [
+            fixture_names = tuple(
                 f[len("fixture:") :] for f in code_options if f.startswith("fixture:")
-            ]
+            )
             yield FenceTest(code_block, fixture_names, start_line)
             prev = code_block
 
@@ -291,7 +294,9 @@ class MarkdownDocstringCodeModule(pytest.Module):
             # but unsupported before pytest 8.1...
             module = import_path(self.path, root=self.config.rootpath)
 
-        for object_test in self.find_object_tests_recursive(module.__name__, module):
+        for object_test in self.find_object_tests_recursive(
+            module.__name__, module, set(), set()
+        ):
             fence_test = object_test.fence_test
             yield MarkdownInlinePythonItem.from_parent(
                 self,
@@ -302,39 +307,53 @@ class MarkdownDocstringCodeModule(pytest.Module):
             )
 
     def find_object_tests_recursive(
-        self, module_name: str, object: typing.Any
+        self,
+        module_name: str,
+        object: typing.Any,
+        _visited_objects: typing.Set[int],
+        _found_tests: typing.Set[typing.Tuple[str, int]],
     ) -> typing.Generator[ObjectTest, None, None]:
+        if id(object) in _visited_objects:
+            return
+        _visited_objects.add(id(object))
         docstr = inspect.getdoc(object)
 
-        if docstr:
-            docstring_offset = get_docstring_start_line(object)
-            if docstring_offset is None:
-                logger.warning(
-                    "Could not find line number offset for docstring: {docstr}"
-                )
-                docstring_offset = 0
-
-            obj_name = (
-                getattr(object, "__qualname__", None)
-                or getattr(object, "__name__", None)
-                or "<Unnamed obj>"
-            )
-            fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
-            for i, fence_test in enumerate(
-                extract_fence_tests(docstr, docstring_offset, fence_syntax=fence_syntax)
-            ):
-                yield ObjectTest(i, obj_name, fence_test)
-
         for member_name, member in inspect.getmembers(object):
-            if member_name.startswith("_"):
-                continue
-
             if (
                 inspect.isclass(member)
                 or inspect.isfunction(member)
                 or inspect.ismethod(member)
             ) and member.__module__ == module_name:
-                yield from self.find_object_tests_recursive(module_name, member)
+                yield from self.find_object_tests_recursive(
+                    module_name, member, _visited_objects, _found_tests
+                )
+
+        if docstr:
+            docstring_offset = get_docstring_start_line(object)
+            if docstring_offset is None:
+                logger.warning(
+                    f"Could not find line number offset for docstring: {docstr}"
+                )
+            else:
+                obj_name = (
+                    getattr(object, "__qualname__", None)
+                    or getattr(object, "__name__", None)
+                    or "<Unnamed obj>"
+                )
+                fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
+                for i, fence_test in enumerate(
+                    extract_fence_tests(
+                        docstr, docstring_offset, fence_syntax=fence_syntax
+                    )
+                ):
+                    found_test = ObjectTest(i, obj_name, fence_test)
+                    found_test_location = (
+                        module_name,
+                        found_test.fence_test.start_line,
+                    )
+                    if found_test_location not in _found_tests:
+                        _found_tests.add(found_test_location)
+                        yield found_test
 
 
 class MarkdownTextFile(pytest.File):
