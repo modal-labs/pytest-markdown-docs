@@ -12,6 +12,8 @@ from enum import Enum
 from _pytest._code import ExceptionInfo
 from _pytest.config.argparsing import Parser
 from _pytest.pathlib import import_path
+import logging
+
 from pytest_markdown_docs import hooks
 
 
@@ -24,6 +26,8 @@ else:
 
 if typing.TYPE_CHECKING:
     from markdown_it.token import Token
+
+logger = logging.getLogger("pytest-markdown-docs")
 
 MARKER_NAME = "markdown-docs"
 
@@ -47,7 +51,7 @@ class ObjectTest:
     fence_test: FenceTest
 
 
-def get_docstring_start_line(obj) -> int:
+def get_docstring_start_line(obj) -> typing.Optional[int]:
     # Get the source lines and the starting line number of the object
     source_lines, start_line = inspect.getsourcelines(obj)
 
@@ -142,7 +146,7 @@ class MarkdownInlinePythonItem(pytest.Item):
 
             if start_capture:
                 lineno = frame_summary.lineno
-                line = frame_summary.line
+                line = frame_summary.line or ""
                 linespec = f"line {lineno}"
                 traceback_lines.append(
                     f"""  File "{frame_summary.filename}", {linespec}, in {frame_summary.name}"""
@@ -304,6 +308,12 @@ class MarkdownDocstringCodeModule(pytest.Module):
 
         if docstr:
             docstring_offset = get_docstring_start_line(object)
+            if docstring_offset is None:
+                logger.warning(
+                    "Could not find line number offset for docstring: {docstr}"
+                )
+                docstring_offset = 0
+
             obj_name = (
                 getattr(object, "__qualname__", None)
                 or getattr(object, "__name__", None)
