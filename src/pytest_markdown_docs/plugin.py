@@ -294,7 +294,9 @@ class MarkdownDocstringCodeModule(pytest.Module):
             # but unsupported before pytest 8.1...
             module = import_path(self.path, root=self.config.rootpath)
 
-        for object_test in self.find_object_tests_recursive(module.__name__, module):
+        for object_test in self.find_object_tests_recursive(
+            module.__name__, module, set(), set()
+        ):
             fence_test = object_test.fence_test
             yield MarkdownInlinePythonItem.from_parent(
                 self,
@@ -308,14 +310,9 @@ class MarkdownDocstringCodeModule(pytest.Module):
         self,
         module_name: str,
         object: typing.Any,
-        _visited_objects: typing.Set[int] = None,
-        _found_tests: typing.Optional[typing.Tuple[str, int]] = None,
+        _visited_objects: typing.Set[int],
+        _found_tests: typing.Set[typing.Tuple[str, int]],
     ) -> typing.Generator[ObjectTest, None, None]:
-        if _visited_objects is None:
-            _visited_objects = set()
-        if _found_tests is None:
-            _found_tests = set()
-
         if id(object) in _visited_objects:
             return
         _visited_objects.add(id(object))
