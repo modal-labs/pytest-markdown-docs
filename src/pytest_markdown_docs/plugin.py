@@ -3,6 +3,8 @@ import inspect
 import traceback
 import types
 import pathlib
+from dataclasses import dataclass
+
 import pytest
 import typing
 from enum import Enum
@@ -29,6 +31,20 @@ MARKER_NAME = "markdown-docs"
 class FenceSyntax(Enum):
     default = "default"
     superfences = "superfences"
+
+
+@dataclass
+class FenceTest:
+    code_block: str
+    fixture_names: typing.List[str]
+    start_line: int
+
+
+@dataclass
+class ObjectTest:
+    intra_object_index: int
+    object_name: str
+    fence_test: FenceTest
 
 
 class MarkdownInlinePythonItem(pytest.Item):
@@ -161,11 +177,11 @@ class MarkdownInlinePythonItem(pytest.Item):
         return self.name, 0, self.nodeid
 
 
-def extract_code_blocks(
+def extract_fence_tests(
     markdown_string: str,
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
-) -> typing.Generator[typing.Tuple[str, typing.List[str], int], None, None]:
+) -> typing.Generator[FenceTest, None, None]:
     import markdown_it
 
     mi = markdown_it.MarkdownIt(config="commonmark")
@@ -176,7 +192,7 @@ def extract_code_blocks(
         if block.type != "fence" or not block.map:
             continue
 
-        startline = block.map[0] + 1  # skip the info line when counting
+        start_line = block.map[0] + 1  # skip the info line when counting
         if fence_syntax == FenceSyntax.superfences:
             code_info = parse_superfences_block_info(block.info)
         else:
@@ -204,12 +220,12 @@ def extract_code_blocks(
 
             if "continuation" in code_options:
                 code_block = prev + code_block
-                startline = -1  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
+                start_line = -1  # this disables proper line numbers, TODO: adjust line numbers *per snippet*
 
             fixture_names = [
                 f[len("fixture:") :] for f in code_options if f.startswith("fixture:")
             ]
-            yield code_block, fixture_names, startline
+            yield FenceTest(code_block, fixture_names, start_line)
             prev = code_block
 
 
@@ -268,43 +284,36 @@ class MarkdownDocstringCodeModule(pytest.Module):
                 self.path, root=self.config.rootpath, consider_namespace_packages=True
             )
         else:
-            # but unsupported before 8.1...
+            # but unsupported before pytest 8.1...
             module = import_path(self.path, root=self.config.rootpath)
 
-        for code_block_idx, obj, (
-            test_code,
-            fixture_names,
-            start_line,
-        ) in self.find_object_tests_recursive(module.__name__, module):
-            obj_name = (
-                getattr(obj, "__qualname__", None)
-                or getattr(obj, "__name__", None)
-                or "<Unnamed obj>"
-            )
+        for object_test in self.find_object_tests_recursive(module.__name__, module):
+            fence_test = object_test.fence_test
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"{obj_name}[CodeBlock#{code_block_idx+1}][rel.line:{start_line}]",
-                code=test_code,
-                fixture_names=fixture_names,
-                start_line=start_line,
+                name=f"{object_test.object_name}[CodeBlock#{object_test.intra_object_index+1}][rel.line:{fence_test.start_line}]",
+                code=fence_test.code_block,
+                fixture_names=fence_test.fixture_names,
+                start_line=fence_test.start_line,
                 fake_line_numbers=True,  # TODO: figure out where docstrings are in file to offset line numbers properly
             )
 
     def find_object_tests_recursive(
         self, module_name: str, object: typing.Any
-    ) -> typing.Generator[
-        typing.Tuple[int, typing.Any, typing.Tuple[str, typing.List[str], int]],
-        None,
-        None,
-    ]:
+    ) -> typing.Generator[ObjectTest, None, None]:
         docstr = inspect.getdoc(object)
 
         if docstr:
+            obj_name = (
+                getattr(object, "__qualname__", None)
+                or getattr(object, "__name__", None)
+                or "<Unnamed obj>"
+            )
             fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
-            for i, code_block in enumerate(
-                extract_code_blocks(docstr, fence_syntax=fence_syntax)
+            for i, fence_test in enumerate(
+                extract_fence_tests(docstr, fence_syntax=fence_syntax)
             ):
-                yield i, object, code_block
+                yield ObjectTest(i, obj_name, fence_test)
 
         for member_name, member in inspect.getmembers(object):
             if member_name.startswith("_"):
@@ -323,8 +332,8 @@ class MarkdownTextFile(pytest.File):
         markdown_content = self.path.read_text("utf8")
         fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
 
-        for i, (code_block, fixture_names, start_line) in enumerate(
-            extract_code_blocks(
+        for i, fence_test in enumerate(
+            extract_fence_tests(
                 markdown_content,
                 markdown_type=self.path.suffix.replace(".", ""),
                 fence_syntax=fence_syntax,
@@ -332,11 +341,11 @@ class MarkdownTextFile(pytest.File):
         ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"[CodeBlock#{i+1}][line:{start_line}]",
-                code=code_block,
-                fixture_names=fixture_names,
-                start_line=start_line,
-                fake_line_numbers=start_line == -1,
+                name=f"[CodeBlock#{i+1}][line:{fence_test.start_line}]",
+                code=fence_test.code_block,
+                fixture_names=fence_test.fixture_names,
+                start_line=fence_test.start_line,
+                fake_line_numbers=fence_test.start_line == -1,
             )
 
 
