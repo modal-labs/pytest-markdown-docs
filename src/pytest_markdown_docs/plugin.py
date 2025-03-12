@@ -1,9 +1,6 @@
-import ast
 import inspect
-import traceback
 import types
 import pathlib
-from dataclasses import dataclass
 
 import pytest
 import typing
@@ -15,7 +12,8 @@ from _pytest.pathlib import import_path
 import logging
 
 from pytest_markdown_docs import hooks
-
+from pytest_markdown_docs.definitions import FenceTestDefinition, ObjectTestDefinition
+from pytest_markdown_docs.runners import get_runner
 
 if pytest.version_tuple >= (8, 0, 0):
     from _pytest.fixtures import TopRequest
@@ -35,20 +33,6 @@ MARKER_NAME = "markdown-docs"
 class FenceSyntax(Enum):
     default = "default"
     superfences = "superfences"
-
-
-@dataclass(frozen=True)
-class FenceTest:
-    source: str
-    fixture_names: typing.Tuple[str, ...]
-    start_line: int
-
-
-@dataclass(frozen=True)
-class ObjectTest:
-    intra_object_index: int
-    object_name: str
-    fence_test: FenceTest
 
 
 def get_docstring_start_line(obj) -> typing.Optional[int]:
@@ -72,18 +56,18 @@ class MarkdownInlinePythonItem(pytest.Item):
         self,
         name: str,
         parent: typing.Union["MarkdownDocstringCodeModule", "MarkdownTextFile"],
-        code: str,
-        fixture_names: typing.List[str],
-        start_line: int,
+        test_definition: FenceTestDefinition,
     ) -> None:
         super().__init__(name, parent)
         self.add_marker(MARKER_NAME)
-        self.code = code
+        self.code = test_definition.source
         self.obj = None
-        self.user_properties.append(("code", code))
-        self.start_line = start_line
-        self.fixturenames = fixture_names
+        self.test_definition = test_definition
+        self.user_properties.append(("code", test_definition.source))
+        self.start_line = test_definition.start_line
+        self.fixturenames = test_definition.fixture_names
         self.nofuncargs = True
+        self.runner_name = test_definition.runner_name
 
     def setup(self):
         def func() -> None:
@@ -95,6 +79,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         )
         self.fixture_request = TopRequest(self, _ispytest=True)
         self.fixture_request._fillfixtures()
+        self.runner = get_runner(self.runner_name)
 
     def runtest(self):
         global_sets = self.parent.config.hook.pytest_markdown_docs_globals()
@@ -114,79 +99,36 @@ class MarkdownInlinePythonItem(pytest.Item):
         for argname, value in self.funcargs.items():
             all_globals[argname] = value
 
-        try:
-            tree = ast.parse(self.code, filename=self.path)
-        except SyntaxError:
-            raise
-
-        try:
-            # if we don't compile the code, it seems we get name lookup errors
-            # for functions etc. when doing cross-calls across inline functions
-            compiled = compile(tree, filename=self.path, mode="exec", dont_inherit=True)
-        except SyntaxError:
-            raise
-
-        exec(compiled, all_globals)
+        # this ensures that pytest's stdout/stderr capture works during the test:
+        capman = self.config.pluginmanager.getplugin("capturemanager")
+        with capman.global_and_fixture_disabled():
+            self.runner.runtest(self.test_definition, all_globals)
 
     def repr_failure(
         self,
         excinfo: ExceptionInfo[BaseException],
         style=None,
-    ):
-        rawlines = self.code.rstrip("\n").split("\n")
-
-        # custom formatted traceback to translate line numbers and markdown files
-        traceback_lines = []
-        stack_summary = traceback.StackSummary.extract(traceback.walk_tb(excinfo.tb))
-        start_capture = False
-
-        start_line = self.start_line
-
-        for frame_summary in stack_summary:
-            if frame_summary.filename == str(self.path):
-                # start capturing frames the first time we enter user code
-                start_capture = True
-
-            if start_capture:
-                lineno = frame_summary.lineno
-                line = frame_summary.line or ""
-                linespec = f"line {lineno}"
-                traceback_lines.append(
-                    f"""  File "{frame_summary.filename}", {linespec}, in {frame_summary.name}"""
-                )
-                traceback_lines.append(f"    {line.lstrip()}")
-
-        maxdigits = len(str(len(rawlines)))
-        code_margin = "   "
-        numbered_code = "\n".join(
-            [
-                f"{i:>{maxdigits}}{code_margin}{line}"
-                for i, line in enumerate(rawlines[start_line:], start_line + 1)
-            ]
-        )
-
-        pretty_traceback = "\n".join(traceback_lines)
-        pt = f"""Traceback (most recent call last):
-{pretty_traceback}
-{excinfo.exconly()}"""
-
-        return f"""Error in code block:
-{maxdigits * " "}{code_margin}```
-{numbered_code}
-{maxdigits * " "}{code_margin}```
-{pt}
-"""
+    ) -> str:
+        return self.runner.repr_failure(self.test_definition, excinfo, style)
 
     def reportinfo(self):
         return self.name, 0, self.nodeid
 
 
+def get_prefixed_strings(
+    seq: typing.Collection[str], prefix: str
+) -> typing.Sequence[str]:
+    # return strings matching a prefix, with the prefix stripped
+    return tuple(s[len(prefix) :] for s in seq if s.startswith(prefix))
+
+
 def extract_fence_tests(
     markdown_string: str,
     start_line_offset: int,
+    source_path: pathlib.Path,
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
-) -> typing.Generator[FenceTest, None, None]:
+) -> typing.Generator[FenceTestDefinition, None, None]:
     import markdown_it
 
     mi = markdown_it.MarkdownIt(config="commonmark")
@@ -229,10 +171,23 @@ def extract_fence_tests(
             add_blank_lines = start_line - prev.count("\n")
             code_block = prev + ("\n" * add_blank_lines) + block.content
 
-            fixture_names = tuple(
-                f[len("fixture:") :] for f in code_options if f.startswith("fixture:")
+            fixture_names = get_prefixed_strings(code_options, "fixture:")
+            runner_names = get_prefixed_strings(code_options, "runner:")
+            if len(runner_names) == 0:
+                runner_name = None
+            elif len(runner_names) > 1:
+                raise Exception(
+                    f"Multiple runners are not supported, use a single one instead: {runner_names}"
+                )
+            else:
+                runner_name = runner_names[0]
+            yield FenceTestDefinition(
+                code_block,
+                fixture_names,
+                start_line,
+                source_path=source_path,
+                runner_name=runner_name,
             )
-            yield FenceTest(code_block, fixture_names, start_line)
             prev = code_block
 
 
@@ -301,9 +256,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
                 name=f"{object_test.object_name}[CodeFence#{object_test.intra_object_index+1}][line:{fence_test.start_line}]",
-                code=fence_test.source,
-                fixture_names=fence_test.fixture_names,
-                start_line=fence_test.start_line,
+                test_definition=fence_test,
             )
 
     def find_object_tests_recursive(
@@ -312,7 +265,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
         object: typing.Any,
         _visited_objects: typing.Set[int],
         _found_tests: typing.Set[typing.Tuple[str, int]],
-    ) -> typing.Generator[ObjectTest, None, None]:
+    ) -> typing.Generator[ObjectTestDefinition, None, None]:
         if id(object) in _visited_objects:
             return
         _visited_objects.add(id(object))
@@ -343,10 +296,13 @@ class MarkdownDocstringCodeModule(pytest.Module):
                 fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
                 for i, fence_test in enumerate(
                     extract_fence_tests(
-                        docstr, docstring_offset, fence_syntax=fence_syntax
+                        docstr,
+                        docstring_offset,
+                        source_path=self.path,
+                        fence_syntax=fence_syntax,
                     )
                 ):
-                    found_test = ObjectTest(i, obj_name, fence_test)
+                    found_test = ObjectTestDefinition(i, obj_name, fence_test)
                     found_test_location = (
                         module_name,
                         found_test.fence_test.start_line,
@@ -364,6 +320,7 @@ class MarkdownTextFile(pytest.File):
         for i, fence_test in enumerate(
             extract_fence_tests(
                 markdown_content,
+                source_path=self.path,
                 start_line_offset=0,
                 markdown_type=self.path.suffix.replace(".", ""),
                 fence_syntax=fence_syntax,
@@ -372,9 +329,7 @@ class MarkdownTextFile(pytest.File):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
                 name=f"[CodeFence#{i+1}][line:{fence_test.start_line}]",
-                code=fence_test.source,
-                fixture_names=fence_test.fixture_names,
-                start_line=fence_test.start_line,
+                test_definition=fence_test,
             )
 
 

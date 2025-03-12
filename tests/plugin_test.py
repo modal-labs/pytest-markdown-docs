@@ -431,3 +431,42 @@ def test_error_origin_before_docstring_traceback(testdir, support_dir):
         ],
         consecutive=True,
     )
+
+
+def test_custom_runner(testdir):
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+        
+        @pytest_markdown_docs.register_runner()
+        class LinesAreAllFoo(pytest_markdown_docs.DefaultRunner):
+            def runtest(self, test, args):
+                lines = test.source.strip().split("\\n")
+                for line in lines:
+                    assert line == "foo"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```python runner:LinesAreAllFoo
+        foo
+        foo
+        ```
+        
+        ```python runner:LinesAreAllFoo
+        foo
+        bar
+        ```
+    """,
+    )
+
+    result = testdir.runpytest("-v", "--markdown-docs")
+    result.assert_outcomes(passed=1, failed=1)
+    result.stdout.re_match_lines(
+        [
+            r".*\[CodeFence#1\]\[line:1\].*PASSED.*",
+            r".*\[CodeFence#2\]\[line:6\].*FAILED.*",
+        ],
+        consecutive=True,
+    )
