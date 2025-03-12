@@ -255,7 +255,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
             fence_test = object_test.fence_test
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"{object_test.object_name}[CodeFence#{object_test.intra_object_index+1}][line:{fence_test.start_line}]",
+                name=f"{object_test.object_name}[CodeFence#{object_test.intra_object_index + 1}][line:{fence_test.start_line}]",
                 test_definition=fence_test,
             )
 
@@ -328,7 +328,7 @@ class MarkdownTextFile(pytest.File):
         ):
             yield MarkdownInlinePythonItem.from_parent(
                 self,
-                name=f"[CodeFence#{i+1}][line:{fence_test.start_line}]",
+                name=f"[CodeFence#{i + 1}][line:{fence_test.start_line}]",
                 test_definition=fence_test,
             )
 
