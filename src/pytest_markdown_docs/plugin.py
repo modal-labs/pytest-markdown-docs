@@ -13,7 +13,7 @@ import logging
 
 from pytest_markdown_docs import hooks
 from pytest_markdown_docs.definitions import FenceTestDefinition, ObjectTestDefinition
-from pytest_markdown_docs.runners import get_runner
+from pytest_markdown_docs._runners import get_runner
 
 if pytest.version_tuple >= (8, 0, 0):
     from _pytest.fixtures import TopRequest

@@ -436,10 +436,10 @@ def test_error_origin_before_docstring_traceback(testdir, support_dir):
 def test_custom_runner(testdir):
     testdir.makeconftest(
         """
-        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
         
-        @pytest_markdown_docs.register_runner()
-        class LinesAreAllFoo(pytest_markdown_docs.DefaultRunner):
+        @pytest_markdown_docs._runners.register_runner()
+        class LinesAreAllFoo(pytest_markdown_docs._runners.DefaultRunner):
             def runtest(self, test, args):
                 lines = test.source.strip().split("\\n")
                 for line in lines:
