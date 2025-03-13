@@ -142,9 +142,9 @@ Traceback \(most recent call last\):
 Exception: doh
 """.strip()
     pytest_output = "\n".join(line.rstrip() for line in result.outlines).strip()
-    assert (
-        re.search(expected_output_pattern, pytest_output) is not None
-    ), "Output traceback doesn't match expected value"
+    assert re.search(expected_output_pattern, pytest_output) is not None, (
+        "Output traceback doesn't match expected value"
+    )
 
 
 def test_autouse_fixtures(testdir):
@@ -428,6 +428,45 @@ def test_error_origin_before_docstring_traceback(testdir, support_dir):
             r'\s*File ".*/docstring_error_before.py", line 2, in error_before',
             r'\s*raise Exception\("foo"\)',
             r"\s*Exception: foo",
+        ],
+        consecutive=True,
+    )
+
+
+def test_custom_runner(testdir):
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs._runners
+        
+        @pytest_markdown_docs._runners.register_runner()
+        class LinesAreAllFoo(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                lines = test.source.strip().split("\\n")
+                for line in lines:
+                    assert line == "foo"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```python runner:LinesAreAllFoo
+        foo
+        foo
+        ```
+        
+        ```python runner:LinesAreAllFoo
+        foo
+        bar
+        ```
+    """,
+    )
+
+    result = testdir.runpytest("-v", "--markdown-docs")
+    result.assert_outcomes(passed=1, failed=1)
+    result.stdout.re_match_lines(
+        [
+            r".*\[CodeFence#1\]\[line:1\].*PASSED.*",
+            r".*\[CodeFence#2\]\[line:6\].*FAILED.*",
         ],
         consecutive=True,
     )
