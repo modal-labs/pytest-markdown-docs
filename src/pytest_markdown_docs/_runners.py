@@ -26,7 +26,7 @@ class Runner(typing.Protocol):
 R = typing.TypeVar("R", bound=typing.Callable[[], Runner])
 
 
-def register_runner(default: bool = False):
+def register_runner(*, default: bool = False):
     """Decorator for adding custom runners
 
     e.g.
