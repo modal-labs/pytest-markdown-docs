@@ -2,7 +2,7 @@ import ast
 import traceback
 import typing
 
-from _pytest._code import ExceptionInfo
+import pytest
 
 from pytest_markdown_docs.definitions import FenceTestDefinition
 
@@ -11,16 +11,14 @@ _registered_runners = {}
 
 
 class Runner(typing.Protocol):
-    def runtest(self, test: FenceTestDefinition, args: dict[str, typing.Any]):
-        ...
+    def runtest(self, test: FenceTestDefinition, args: dict[str, typing.Any]): ...
 
     def repr_failure(
         self,
         test: FenceTestDefinition,
-        excinfo: ExceptionInfo[BaseException],
+        excinfo: pytest.ExceptionInfo[BaseException],
         style=None,
-    ):
-        ...
+    ): ...
 
 
 R = typing.TypeVar("R", bound=typing.Callable[[], Runner])
@@ -68,7 +66,7 @@ class DefaultRunner:
     def repr_failure(
         self,
         test: FenceTestDefinition,
-        excinfo: ExceptionInfo[BaseException],
+        excinfo: pytest.ExceptionInfo[BaseException],
         style=None,
     ):
         rawlines = test.source.rstrip("\n").split("\n")

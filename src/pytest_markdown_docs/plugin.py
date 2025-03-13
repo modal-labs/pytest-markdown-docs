@@ -112,7 +112,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         return self.runner.repr_failure(self.test_definition, excinfo, style)
 
     def reportinfo(self):
-        return self.name, 0, self.nodeid
+        return self.path, self.start_line, self.name
 
 
 def get_prefixed_strings(
