@@ -1,18 +1,22 @@
+import abc
 import ast
 import traceback
 import typing
+from abc import abstractmethod
 
 import pytest
 
 from pytest_markdown_docs.definitions import FenceTestDefinition
 
-_default_runner = None
+_default_runner: typing.Optional["_Runner"] = None
 _registered_runners = {}
 
 
-class Runner(typing.Protocol):
+class _Runner(metaclass=abc.ABCMeta):
+    @abstractmethod
     def runtest(self, test: FenceTestDefinition, args: dict[str, typing.Any]): ...
 
+    @abstractmethod
     def repr_failure(
         self,
         test: FenceTestDefinition,
@@ -21,7 +25,7 @@ class Runner(typing.Protocol):
     ): ...
 
 
-R = typing.TypeVar("R", bound=typing.Callable[[], Runner])
+RUNNER_TYPE = typing.TypeVar("RUNNER_TYPE", bound=type[_Runner])
 
 
 def register_runner(*, default: bool = False):
@@ -33,7 +37,7 @@ def register_runner(*, default: bool = False):
         exec(src)
     """
 
-    def decorator(r: R) -> R:
+    def decorator(r: RUNNER_TYPE) -> RUNNER_TYPE:
         global _default_runner
         runner = r()
         _registered_runners[r.__name__] = runner
@@ -45,7 +49,7 @@ def register_runner(*, default: bool = False):
 
 
 @register_runner(default=True)
-class DefaultRunner:
+class DefaultRunner(_Runner):
     def runtest(self, test: FenceTestDefinition, args):
         try:
             tree = ast.parse(test.source, filename=test.source_path)
@@ -114,8 +118,9 @@ class DefaultRunner:
 """
 
 
-def get_runner(name: typing.Optional[str]):
+def get_runner(name: typing.Optional[str]) -> _Runner:
     if name is None:
+        assert _default_runner is not None
         return _default_runner
 
     if name not in _registered_runners:
