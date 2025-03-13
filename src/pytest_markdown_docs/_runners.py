@@ -73,6 +73,11 @@ class DefaultRunner(_Runner):
         excinfo: pytest.ExceptionInfo[BaseException],
         style=None,
     ):
+        """This renders a traceback starting at the stack from of the code fence
+
+        Also displays a line-numbered excerpt of the code fence that ran.
+        """
+
         rawlines = test.source.rstrip("\n").split("\n")
 
         # custom formatted traceback to translate line numbers and markdown files
