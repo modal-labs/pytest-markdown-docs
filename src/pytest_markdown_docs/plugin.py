@@ -24,6 +24,7 @@ else:
 
 if typing.TYPE_CHECKING:
     from markdown_it.token import Token
+    from markdown_it import MarkdownIt
 
 logger = logging.getLogger("pytest-markdown-docs")
 
@@ -123,15 +124,20 @@ def get_prefixed_strings(
 
 
 def extract_fence_tests(
+    markdown_it_parsers: typing.List["MarkdownIt"],
     markdown_string: str,
     start_line_offset: int,
     source_path: pathlib.Path,
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
 ) -> typing.Generator[FenceTestDefinition, None, None]:
-    import markdown_it
+    if not markdown_it_parsers:
+        from markdown_it import MarkdownIt
 
-    mi = markdown_it.MarkdownIt(config="commonmark")
+        mi = MarkdownIt(config="commonmark")
+    else:
+        mi = markdown_it_parsers[0]
+
     tokens = mi.parse(markdown_string)
 
     prev = ""
@@ -294,8 +300,13 @@ class MarkdownDocstringCodeModule(pytest.Module):
                     or "<Unnamed obj>"
                 )
                 fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
+                markdown_it_parsers = (
+                    self.config.hook.pytest_markdown_docs_markdown_it()
+                )
+
                 for i, fence_test in enumerate(
                     extract_fence_tests(
+                        markdown_it_parsers,
                         docstr,
                         docstring_offset,
                         source_path=self.path,
@@ -317,8 +328,11 @@ class MarkdownTextFile(pytest.File):
         markdown_content = self.path.read_text("utf8")
         fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
 
+        markdown_it_parsers = self.config.hook.pytest_markdown_docs_markdown_it()
+
         for i, fence_test in enumerate(
             extract_fence_tests(
+                markdown_it_parsers,
                 markdown_content,
                 source_path=self.path,
                 start_line_offset=0,

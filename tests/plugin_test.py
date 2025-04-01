@@ -470,3 +470,43 @@ def test_custom_runner(testdir):
         ],
         consecutive=True,
     )
+
+
+def test_admonition_markdown_text_file(testdir):
+    testdir.makeconftest(
+        """
+        def pytest_markdown_docs_globals():
+            return {"a": "hello"}
+
+        def pytest_markdown_docs_markdown_it():
+            import markdown_it
+            from mdit_py_plugins.admon import admon_plugin
+
+            mi = markdown_it.MarkdownIt(config="commonmark")
+            mi.use(admon_plugin)
+            return mi
+    """
+    )
+
+    testdir.makefile(
+        ".md",
+        """
+        ??? quote
+
+            ```python
+            assert a + " world" == "hello world"
+            ```
+
+        !!! info
+            ```python
+            assert False
+            ```
+
+        ???+ note
+            ```python
+            **@ # this is a syntax error
+            ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1, failed=2)

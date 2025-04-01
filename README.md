@@ -169,6 +169,21 @@ The following options can be specified using MDX comments:
 
 This approach allows you to add metadata to the code block without modifying the code fence itself, making it particularly useful in MDX environments.
 
+## Customizing your own custom MarkdownIt parser
+
+You can configure your own [Markdown-it-py](https://pypi.org/project/markdown-it-py/) parser used by `pytest-markdown-docs` by defining a `pytest_markdown_docs_markdown_it`. For example, you can support
+`mkdocs`'s admonitions with:
+
+```python
+def pytest_markdown_docs_markdown_it():
+    import markdown_it
+    from mdit_py_plugins.admon import admon_plugin
+
+    mi = markdown_it.MarkdownIt(config="commonmark")
+    mi.use(admon_plugin)
+    return mi
+```
+
 ## Testing of this plugin
 
 You can test this module itself (sadly not using markdown tests at the moment) using pytest:
