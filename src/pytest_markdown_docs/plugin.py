@@ -131,14 +131,7 @@ def extract_fence_tests(
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
 ) -> typing.Generator[FenceTestDefinition, None, None]:
-    if not markdown_it_parser:
-        from markdown_it import MarkdownIt
-
-        mi = MarkdownIt(config="commonmark")
-    else:
-        mi = markdown_it_parser
-
-    tokens = mi.parse(markdown_string)
+    tokens = markdown_it_parser.parse(markdown_string)
 
     prev = ""
     for i, block in enumerate(tokens):
@@ -386,3 +379,10 @@ def pytest_addoption(parser: Parser) -> None:
 
 def pytest_addhooks(pluginmanager):
     pluginmanager.add_hookspecs(hooks)
+
+
+@pytest.hookimpl
+def pytest_markdown_docs_markdown_it() -> "MarkdownIt":
+    from markdown_it import MarkdownIt
+
+    return MarkdownIt(config="commonmark")
