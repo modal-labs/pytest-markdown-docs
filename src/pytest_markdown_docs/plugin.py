@@ -124,19 +124,19 @@ def get_prefixed_strings(
 
 
 def extract_fence_tests(
-    markdown_it_parsers: typing.List["MarkdownIt"],
+    markdown_it_parser: "MarkdownIt",
     markdown_string: str,
     start_line_offset: int,
     source_path: pathlib.Path,
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
 ) -> typing.Generator[FenceTestDefinition, None, None]:
-    if not markdown_it_parsers:
+    if not markdown_it_parser:
         from markdown_it import MarkdownIt
 
         mi = MarkdownIt(config="commonmark")
     else:
-        mi = markdown_it_parsers[0]
+        mi = markdown_it_parser
 
     tokens = mi.parse(markdown_string)
 
@@ -300,13 +300,11 @@ class MarkdownDocstringCodeModule(pytest.Module):
                     or "<Unnamed obj>"
                 )
                 fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
-                markdown_it_parsers = (
-                    self.config.hook.pytest_markdown_docs_markdown_it()
-                )
+                markdown_it_parser = self.config.hook.pytest_markdown_docs_markdown_it()
 
                 for i, fence_test in enumerate(
                     extract_fence_tests(
-                        markdown_it_parsers,
+                        markdown_it_parser,
                         docstr,
                         docstring_offset,
                         source_path=self.path,
@@ -328,11 +326,11 @@ class MarkdownTextFile(pytest.File):
         markdown_content = self.path.read_text("utf8")
         fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
 
-        markdown_it_parsers = self.config.hook.pytest_markdown_docs_markdown_it()
+        markdown_it_parser = self.config.hook.pytest_markdown_docs_markdown_it()
 
         for i, fence_test in enumerate(
             extract_fence_tests(
-                markdown_it_parsers,
+                markdown_it_parser,
                 markdown_content,
                 source_path=self.path,
                 start_line_offset=0,
