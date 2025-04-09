@@ -1,6 +1,6 @@
 [project]
 name = "pytest-markdown-docs"
-version = "0.8.0"
+version = "0.9.0"
 description = "Run markdown code fences through pytest"
 readme = "README.md"
 authors = [
