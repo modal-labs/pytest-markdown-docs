@@ -24,6 +24,7 @@ else:
 
 if typing.TYPE_CHECKING:
     from markdown_it.token import Token
+    from markdown_it import MarkdownIt
 
 logger = logging.getLogger("pytest-markdown-docs")
 
@@ -123,16 +124,14 @@ def get_prefixed_strings(
 
 
 def extract_fence_tests(
+    markdown_it_parser: "MarkdownIt",
     markdown_string: str,
     start_line_offset: int,
     source_path: pathlib.Path,
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
 ) -> typing.Generator[FenceTestDefinition, None, None]:
-    import markdown_it
-
-    mi = markdown_it.MarkdownIt(config="commonmark")
-    tokens = mi.parse(markdown_string)
+    tokens = markdown_it_parser.parse(markdown_string)
 
     prev = ""
     for i, block in enumerate(tokens):
@@ -294,8 +293,11 @@ class MarkdownDocstringCodeModule(pytest.Module):
                     or "<Unnamed obj>"
                 )
                 fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
+                markdown_it_parser = self.config.hook.pytest_markdown_docs_markdown_it()
+
                 for i, fence_test in enumerate(
                     extract_fence_tests(
+                        markdown_it_parser,
                         docstr,
                         docstring_offset,
                         source_path=self.path,
@@ -317,8 +319,11 @@ class MarkdownTextFile(pytest.File):
         markdown_content = self.path.read_text("utf8")
         fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
 
+        markdown_it_parser = self.config.hook.pytest_markdown_docs_markdown_it()
+
         for i, fence_test in enumerate(
             extract_fence_tests(
+                markdown_it_parser,
                 markdown_content,
                 source_path=self.path,
                 start_line_offset=0,
@@ -374,3 +379,10 @@ def pytest_addoption(parser: Parser) -> None:
 
 def pytest_addhooks(pluginmanager):
     pluginmanager.add_hookspecs(hooks)
+
+
+@pytest.hookimpl
+def pytest_markdown_docs_markdown_it() -> "MarkdownIt":
+    from markdown_it import MarkdownIt
+
+    return MarkdownIt(config="commonmark")
