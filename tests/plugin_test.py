@@ -135,9 +135,9 @@ Error in code block:
 10   foo\(\)
      ```
 Traceback \(most recent call last\):
-  File ".*/test_traceback.md", line 10, in <module>
+  File ".*(/|\\)test_traceback.md", line 10, in <module>
     foo\(\)
-  File ".*/test_traceback.md", line 5, in foo
+  File ".*(/|\\)test_traceback.md", line 5, in foo
     raise Exception\("doh"\)
 Exception: doh
 """.strip()
@@ -404,9 +404,9 @@ def test_error_origin_after_docstring_traceback(testdir, support_dir):
     data.re_match_lines(
         [
             r"Traceback \(most recent call last\):",
-            r'\s*File ".*/docstring_error_after.py", line 5, in <module>',
+            r'\s*File ".*(/|\\)docstring_error_after.py", line 5, in <module>',
             r"\s*docstring_error_after.error_after\(\)",
-            r'\s*File ".*/docstring_error_after.py", line 11, in error_after',
+            r'\s*File ".*(/|\\)docstring_error_after.py", line 11, in error_after',
             r'\s*raise Exception\("bar"\)',
             r"\s*Exception: bar",
         ],
@@ -423,9 +423,9 @@ def test_error_origin_before_docstring_traceback(testdir, support_dir):
     data.re_match_lines(
         [
             r"Traceback \(most recent call last\):",
-            r'\s*File ".*/docstring_error_before.py", line 9, in <module>',
+            r'\s*File ".*(/|\\)docstring_error_before.py", line 9, in <module>',
             r"\s*docstring_error_before.error_before\(\)",
-            r'\s*File ".*/docstring_error_before.py", line 2, in error_before',
+            r'\s*File ".*(/|\\)docstring_error_before.py", line 2, in error_before',
             r'\s*raise Exception\("foo"\)',
             r"\s*Exception: foo",
         ],
