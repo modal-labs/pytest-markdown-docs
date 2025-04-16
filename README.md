@@ -83,7 +83,7 @@ Sometimes you might wish to run code blocks that depend on entities to already
 be declared in the scope of the code, without explicitly declaring them. There
 are currently three ways you can do this with pytest-markdown:
 
-### Injecting global/local variables
+### Option 1: Injecting global/local variables
 
 If you have some common imports or other common variables that you want to make
 use of in snippets, you can add them by creating a `pytest_markdown_docs_globals`
@@ -104,7 +104,7 @@ print(myvar, math.pi)
 ```
 ````
 
-### Fixtures
+### Option 2: Fixtures
 
 You can use both `autouse=True` pytest fixtures in a conftest.py or named fixtures with
 your markdown tests. To specify named fixtures, add `fixture:<name>` markers to the code
@@ -120,7 +120,7 @@ assert captured.out == "hello\n"
 
 As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
 
-### Depending on previous snippets
+### Option 3: Depending on previous snippets
 
 If you have multiple snippets following each other and want to keep the side
 effects from the previous snippets, you can do so by adding the `continuation`
