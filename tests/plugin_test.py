@@ -102,6 +102,25 @@ def test_continuation(testdir):
     result.assert_outcomes(passed=2)
 
 
+def test_code_block_inside_comment(testdir):
+    testdir.makefile(
+        ".md",
+        """
+        <!--```python
+        # This code would not render because it's in a comment
+
+        b = "hello" 
+        ```--> 
+
+        ```python continuation
+        assert b == "hello"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
+
+
 def test_traceback(testdir):
     testdir.makefile(
         ".md",

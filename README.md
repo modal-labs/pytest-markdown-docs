@@ -81,7 +81,7 @@ print("this will not be run")
 
 Sometimes you might wish to run code blocks that depend on entities to already
 be declared in the scope of the code, without explicitly declaring them. There
-are currently two ways you can do this with pytest-markdown:
+are currently three ways you can do this with pytest-markdown:
 
 ### Injecting global/local variables
 
@@ -136,7 +136,29 @@ assert a + " world" == "hello world"
 ```
 ````
 
-### Compatibility with Material for MkDocs
+#### Hiding previous snippets
+
+If some of your snippets are to set up your code and you don't wish them
+to be displayed in the rendered markdown, you can enclose your code block
+in a comment `<!--   -->`:
+
+````markdown
+<!--```python
+# Run setup code here
+import my_library
+```-->
+
+```python continuation
+# The code you'd like users to see
+assert my_library.is_setup()
+```
+````
+
+> [!NOTE]
+> We've extended the parser to detect and run code in HTML comments but for this to work,
+> your code block must start with exactly `<!--``` ` or `<!--~~~` and finish with ` ```-->` or `~~~-->` (no spaces!) .
+
+#### Compatibility with Material for MkDocs
 
 Material for Mkdocs is not compatible with the default syntax.
 

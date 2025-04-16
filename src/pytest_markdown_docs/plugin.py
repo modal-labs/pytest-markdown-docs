@@ -14,6 +14,7 @@ import logging
 from pytest_markdown_docs import hooks
 from pytest_markdown_docs.definitions import FenceTestDefinition, ObjectTestDefinition
 from pytest_markdown_docs._runners import get_runner
+from pytest_markdown_docs._comment_parser import comment_plugin
 
 if pytest.version_tuple >= (8, 0, 0):
     from _pytest.fixtures import TopRequest
@@ -294,6 +295,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
                 )
                 fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
                 markdown_it_parser = self.config.hook.pytest_markdown_docs_markdown_it()
+                markdown_it_parser.use(comment_plugin)
 
                 for i, fence_test in enumerate(
                     extract_fence_tests(
@@ -320,6 +322,7 @@ class MarkdownTextFile(pytest.File):
         fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
 
         markdown_it_parser = self.config.hook.pytest_markdown_docs_markdown_it()
+        markdown_it_parser.use(comment_plugin)
 
         for i, fence_test in enumerate(
             extract_fence_tests(
