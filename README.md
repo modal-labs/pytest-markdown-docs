@@ -141,7 +141,7 @@ If you'd like to hide some code blocks from readers (e.g. to hide boilerplate co
 > [!NOTE]
 > Material for Mkdocs is not compatible with the default syntax. But if the extension `pymdownx.superfences` is [configured](https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown-extensions/#superfences) for mkdocs, the brace syntax can be used:
 > ````markdown
-> ```python {continuation}
+> ```{.python continuation}
 > ````
 > You will need to call pytest with the `--markdown-docs-syntax` option:
 > ```shell
