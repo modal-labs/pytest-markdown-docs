@@ -81,9 +81,9 @@ print("this will not be run")
 
 Sometimes you might wish to run code blocks that depend on entities to already
 be declared in the scope of the code, without explicitly declaring them. There
-are currently two ways you can do this with pytest-markdown:
+are currently three ways you can do this with pytest-markdown:
 
-### Injecting global/local variables
+### Method 1: Injecting global/local variables
 
 If you have some common imports or other common variables that you want to make
 use of in snippets, you can add them by creating a `pytest_markdown_docs_globals`
@@ -104,7 +104,7 @@ print(myvar, math.pi)
 ```
 ````
 
-### Fixtures
+### Method 2: Fixtures
 
 You can use both `autouse=True` pytest fixtures in a conftest.py or named fixtures with
 your markdown tests. To specify named fixtures, add `fixture:<name>` markers to the code
@@ -120,7 +120,7 @@ assert captured.out == "hello\n"
 
 As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
 
-### Depending on previous snippets
+### Method 3: Depending on previous snippets
 
 If you have multiple snippets following each other and want to keep the side
 effects from the previous snippets, you can do so by adding the `continuation`
@@ -136,19 +136,17 @@ assert a + " world" == "hello world"
 ```
 ````
 
-### Compatibility with Material for MkDocs
+If you'd like to hide some code blocks from readers (e.g. to hide boilerplate code) you can use the [`markdown-hide-code`](https://pypi.org/project/markdown-hide-code/) extension (assuming you're using the `markdown` library or `mkdocs` to render your documentation).
 
-Material for Mkdocs is not compatible with the default syntax.
-
-But if the extension `pymdownx.superfences` is configured for mkdocs, the brace format can be used:
-````markdown
-```{.python continuation}
-````
-
-You will need to call pytest with the `--markdown-docs-syntax` option:
-```shell
-pytest --markdown-docs --markdown-docs-syntax=superfences
-```
+> [!NOTE]
+> Material for Mkdocs is not compatible with the default syntax. But if the extension `pymdownx.superfences` is [configured](https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown-extensions/#superfences) for mkdocs, the brace syntax can be used:
+> ````markdown
+> ```python {continuation}
+> ````
+> You will need to call pytest with the `--markdown-docs-syntax` option:
+> ```shell
+> pytest --markdown-docs --markdown-docs-syntax=superfences
+> ```
 
 ## MDX Comments for Metadata Options
 In .mdx files, you can use MDX comments to provide additional options for code blocks. These comments should be placed immediately before the code block and take the following form:
