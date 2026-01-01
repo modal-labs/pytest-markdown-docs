@@ -100,10 +100,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         for argname, value in self.funcargs.items():
             all_globals[argname] = value
 
-        # this ensures that pytest's stdout/stderr capture works during the test:
-        capman = self.config.pluginmanager.getplugin("capturemanager")
-        with capman.global_and_fixture_disabled():
-            self.runner.runtest(self.test_definition, all_globals)
+        self.runner.runtest(self.test_definition, all_globals)
 
     def repr_failure(
         self,
