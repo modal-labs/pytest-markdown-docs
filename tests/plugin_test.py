@@ -510,3 +510,52 @@ def test_admonition_markdown_text_file(testdir):
     )
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=1, failed=2)
+
+
+def test_stdout_is_captured(testdir):
+    """Verify that print() output appears in pytest's Captured stdout section on failure."""
+    testdir.makefile(
+        ".md",
+        """
+        ```python
+        print("MARKER_HELLO_WORLD")
+        assert False
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Captured stdout*", "*MARKER_HELLO_WORLD*"])
+
+
+def test_stdout_does_not_leak(testdir):
+    """Verify that print() output does not leak to stdout on passing tests."""
+    testdir.makefile(
+        ".md",
+        """
+        ```python
+        print("MARKER_HELLO_WORLD")
+        assert True
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    output = "\n".join(result.stdout.lines)
+    assert "MARKER_HELLO_WORLD" not in output
+
+
+def test_capsys_fixture(testdir):
+    """Verify that the capsys fixture works in markdown code blocks."""
+    testdir.makefile(
+        ".md",
+        """
+        ```python fixture:capsys
+        print("hello from capsys test")
+        captured = capsys.readouterr()
+        assert captured.out == "hello from capsys test\\n"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
