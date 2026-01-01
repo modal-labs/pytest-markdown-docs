@@ -543,3 +543,19 @@ def test_stdout_does_not_leak(testdir):
     result.assert_outcomes(passed=1)
     output = "\n".join(result.stdout.lines)
     assert "MARKER_HELLO_WORLD" not in output
+
+
+def test_capsys_fixture(testdir):
+    """Verify that the capsys fixture works in markdown code blocks."""
+    testdir.makefile(
+        ".md",
+        """
+        ```python fixture:capsys
+        print("hello from capsys test")
+        captured = capsys.readouterr()
+        assert captured.out == "hello from capsys test\\n"
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
