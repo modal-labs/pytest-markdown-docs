@@ -510,3 +510,214 @@ def test_admonition_markdown_text_file(testdir):
     )
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=1, failed=2)
+
+
+def test_retry_eventually_succeeds(testdir):
+    """Test that a flaky test succeeds after retrying."""
+    testdir.makepyfile(
+        conftest="""
+attempt_counter = {}
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python retry:3
+import conftest
+key = "test_1"
+conftest.attempt_counter[key] = conftest.attempt_counter.get(key, 0) + 1
+assert conftest.attempt_counter[key] >= 2  # Fails first time, passes on retry
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_retry_exhausted(testdir):
+    """Test that a test fails after all retry attempts are exhausted."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python retry:2
+assert False  # Always fails
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(failed=1)
+
+
+def test_retry_with_fixture(testdir):
+    """Test that fixtures are not re-run between retries."""
+    testdir.makepyfile(
+        conftest="""
+import pytest
+
+fixture_call_count = 0
+
+@pytest.fixture
+def counting_fixture():
+    global fixture_call_count
+    fixture_call_count += 1
+    return fixture_call_count
+
+attempt_counter = {}
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python retry:3 fixture:counting_fixture
+import conftest
+key = "test_2"
+conftest.attempt_counter[key] = conftest.attempt_counter.get(key, 0) + 1
+
+# Fixture should only be called once (value should stay 1)
+assert counting_fixture == 1
+
+# Fail on first attempt, pass on second
+assert conftest.attempt_counter[key] >= 2
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_retry_with_continuation(testdir):
+    """Test that retry works with continuation blocks."""
+    testdir.makepyfile(
+        conftest="""
+attempt_counter = {}
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+a = "hello"
+```
+
+```python retry:2 continuation
+import conftest
+key = "test_3"
+conftest.attempt_counter[key] = conftest.attempt_counter.get(key, 0) + 1
+
+# Variable 'a' from previous block should be available
+assert a + " world" == "hello world"
+
+# Fail on first attempt, pass on second
+assert conftest.attempt_counter[key] >= 2
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
+
+
+def test_retry_invalid_negative(testdir):
+    """Test that negative retry counts raise an error."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python retry:-1
+assert True
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(["*Invalid retry count*non-negative integer*"])
+
+
+def test_retry_invalid_non_numeric(testdir):
+    """Test that non-numeric retry counts raise an error."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python retry:abc
+assert True
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(["*Invalid retry count*non-negative integer*"])
+
+
+def test_retry_multiple_values_error(testdir):
+    """Test that multiple retry values raise an error."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python retry:2 retry:3
+assert True
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(["*Multiple retry counts are not supported*"])
+
+
+def test_retry_zero(testdir):
+    """Test that retry:0 behaves the same as no retry."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python retry:0
+assert False
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(failed=1)
+
+
+def test_retry_mdx_comment(testdir):
+    """Test that retry works with MDX comment metadata."""
+    testdir.makepyfile(
+        conftest="""
+attempt_counter = {}
+"""
+    )
+    testdir.makefile(
+        ".mdx",
+        test_file="""
+{/* pmd-metadata: retry:3 */}
+```python
+import conftest
+key = "test_4"
+conftest.attempt_counter[key] = conftest.attempt_counter.get(key, 0) + 1
+assert conftest.attempt_counter[key] >= 2
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_retry_with_docstring(testdir):
+    """Test that retry works in Python docstrings."""
+    testdir.makepyfile(
+        conftest="""
+attempt_counter = {}
+"""
+    )
+    testdir.makepyfile(
+        test_module="""
+def my_function():
+    \"\"\"
+    ```python retry:3
+    import conftest
+    key = "test_5"
+    conftest.attempt_counter[key] = conftest.attempt_counter.get(key, 0) + 1
+    assert conftest.attempt_counter[key] >= 2
+    ```
+    \"\"\"
+    pass
+"""
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)

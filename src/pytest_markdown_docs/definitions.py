@@ -10,6 +10,7 @@ class FenceTestDefinition:
     start_line: int
     source_path: pathlib.Path
     runner_name: typing.Optional[str]
+    max_retries: int = 0
 
 
 @dataclass(frozen=True)

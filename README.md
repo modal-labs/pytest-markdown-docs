@@ -136,6 +136,25 @@ assert a + " world" == "hello world"
 ```
 ````
 
+### Retrying Flaky Tests
+
+For tests that may fail occasionally due to timing, network, or other transient issues, you can specify automatic retries using the `retry:N` syntax:
+
+````markdown
+```python retry:3
+import requests
+response = requests.get("https://api.example.com")
+assert response.status_code == 200
+```
+````
+
+With `retry:3`, the test runs up to 4 times total (1 initial attempt + 3 retries). The test passes if any attempt succeeds.
+
+**Important notes:**
+- Fixtures are NOT re-run between retries - only the test code re-executes
+- All exceptions trigger retries (AssertionError, RuntimeError, etc.)
+- When using a continuation block, only the failing block retries
+
 ### Compatibility with Material for MkDocs
 
 Material for Mkdocs is not compatible with the default syntax.
@@ -166,6 +185,7 @@ The following options can be specified using MDX comments:
 * notest: Exclude the code block from testing.
 * fixture:<name>: Apply named pytest fixtures to the code block.
 * continuation: Continue from the previous code block, allowing you to carry over state.
+* retry:<count>: Automatically retry the test up to the specified number of times if it fails.
 
 This approach allows you to add metadata to the code block without modifying the code fence itself, making it particularly useful in MDX environments.
 
