@@ -8,12 +8,18 @@ authors = [
     { name = "Elias Freider", email = "elias@modal.com" } 
 ]
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 dependencies = [
     "markdown-it-py>=2.2.0,<4.0",
     "pytest>=7.0.0",
 ]
-include = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://github.com/modal-labs/pytest-markdown-docs"
+Repository = "https://github.com/modal-labs/pytest-markdown-docs"
+"Issue Tracker" = "https://github.com/modal-labs/pytest-markdown-docs/issues"
+
 
 [project.entry-points.pytest11]
 pytest_markdown_docs = "pytest_markdown_docs.plugin"
@@ -22,12 +28,11 @@ pytest_markdown_docs = "pytest_markdown_docs.plugin"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-package=true
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "mypy>=1.12.1",
     "pre-commit>=3.5.0",
     "pytest~=8.1.0",
     "ruff~=0.9.10",
-    "mdit-py-plugins~=0.4.2"
+    "mdit-py-plugins~=0.4.2",
 ]
