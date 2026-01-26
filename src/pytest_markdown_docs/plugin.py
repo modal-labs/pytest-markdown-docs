@@ -100,10 +100,36 @@ class MarkdownInlinePythonItem(pytest.Item):
         for argname, value in self.funcargs.items():
             all_globals[argname] = value
 
-        # this ensures that pytest's stdout/stderr capture works during the test:
-        capman = self.config.pluginmanager.getplugin("capturemanager")
-        with capman.global_and_fixture_disabled():
-            self.runner.runtest(self.test_definition, all_globals)
+        # Retry logic
+        max_retries = self.test_definition.max_retries
+        max_attempts = max_retries + 1  # +1 for initial attempt
+
+        last_exception = None
+        for attempt in range(max_attempts):
+            try:
+                # this ensures that pytest's stdout/stderr capture works during the test:
+                capman = self.config.pluginmanager.getplugin("capturemanager")
+                with capman.global_and_fixture_disabled():
+                    self.runner.runtest(self.test_definition, all_globals)
+
+                # Success - test passed
+                if attempt > 0:
+                    # Record retry count for reporting
+                    self.user_properties.append(("retries", str(attempt)))
+                return
+
+            except Exception as e:
+                last_exception = e
+                if attempt < max_attempts - 1:
+                    # Not the last attempt, will retry
+                    continue
+                else:
+                    # Last attempt failed, re-raise
+                    raise
+
+        # Safety fallback (should not reach here)
+        if last_exception:
+            raise last_exception
 
     def repr_failure(
         self,
@@ -180,12 +206,31 @@ def extract_fence_tests(
                 )
             else:
                 runner_name = runner_names[0]
+
+            retry_counts = get_prefixed_strings(code_options, "retry:")
+            if len(retry_counts) == 0:
+                max_retries = 0
+            elif len(retry_counts) > 1:
+                raise Exception(
+                    f"Multiple retry counts are not supported, use a single one instead: {retry_counts}"
+                )
+            else:
+                try:
+                    max_retries = int(retry_counts[0])
+                    if max_retries < 0:
+                        raise ValueError("Retry count must be non-negative")
+                except ValueError as e:
+                    raise Exception(
+                        f"Invalid retry count '{retry_counts[0]}': must be a non-negative integer"
+                    ) from e
+
             yield FenceTestDefinition(
                 code_block,
                 fixture_names,
                 start_line,
                 source_path=source_path,
                 runner_name=runner_name,
+                max_retries=max_retries,
             )
             prev = code_block
 
