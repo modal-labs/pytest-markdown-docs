@@ -721,3 +721,258 @@ def my_function():
     )
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=1)
+
+
+# ============================================================================
+# Async fixture tests (pytest-asyncio integration)
+# ============================================================================
+
+
+def test_async_fixture_basic(testdir):
+    """Test that a basic async fixture works with markdown tests."""
+    testdir.makeconftest(
+        """
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def async_value():
+    return "async_hello"
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:async_value
+assert async_value == "async_hello"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_async_fixture_with_await(testdir):
+    """Test that an async fixture that uses await works."""
+    testdir.makeconftest(
+        """
+import asyncio
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def async_delayed_value():
+    await asyncio.sleep(0.01)
+    return "delayed_value"
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:async_delayed_value
+assert async_delayed_value == "delayed_value"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_async_generator_fixture(testdir):
+    """Test that an async generator fixture (with yield) works."""
+    testdir.makeconftest(
+        """
+import pytest_asyncio
+import pytest_markdown_docs
+
+@pytest_asyncio.fixture
+async def async_resource():
+    # Setup
+    pytest_markdown_docs.async_setup_called = True
+    yield "resource_value"
+    # Teardown
+    pytest_markdown_docs.async_teardown_called = True
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:async_resource
+import pytest_markdown_docs
+assert async_resource == "resource_value"
+assert pytest_markdown_docs.async_setup_called == True
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+    # Verify teardown was called
+    assert getattr(pytest_markdown_docs, "async_teardown_called", False) is True
+    # Clean up
+    delattr(pytest_markdown_docs, "async_setup_called")
+    delattr(pytest_markdown_docs, "async_teardown_called")
+
+
+def test_async_fixture_chain(testdir):
+    """Test that an async fixture can depend on another async fixture."""
+    testdir.makeconftest(
+        """
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def base_async_value():
+    return "base"
+
+@pytest_asyncio.fixture
+async def derived_async_value(base_async_value):
+    return f"{base_async_value}_derived"
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:derived_async_value
+assert derived_async_value == "base_derived"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_async_fixture_depends_on_sync_fixture(testdir):
+    """Test that an async fixture can depend on a sync fixture."""
+    testdir.makeconftest(
+        """
+import pytest
+import pytest_asyncio
+
+@pytest.fixture
+def sync_value():
+    return "sync"
+
+@pytest_asyncio.fixture
+async def async_combined(sync_value):
+    return f"{sync_value}_async"
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:async_combined
+assert async_combined == "sync_async"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_sync_fixture_depends_on_async_fixture(testdir):
+    """Test that a sync fixture can depend on an async fixture."""
+    testdir.makeconftest(
+        """
+import pytest
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def async_base():
+    return "async"
+
+@pytest.fixture
+def sync_derived(async_base):
+    return f"{async_base}_sync"
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:sync_derived
+assert sync_derived == "async_sync"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_multiple_async_fixtures(testdir):
+    """Test that multiple async fixtures can be used in a single test."""
+    testdir.makeconftest(
+        """
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def async_value_a():
+    return "A"
+
+@pytest_asyncio.fixture
+async def async_value_b():
+    return "B"
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:async_value_a fixture:async_value_b
+assert async_value_a == "A"
+assert async_value_b == "B"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_async_fixture_in_docstring(testdir):
+    """Test that async fixtures work in Python docstrings."""
+    testdir.makeconftest(
+        """
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def async_docstring_value():
+    return "docstring_async"
+"""
+    )
+    testdir.makepyfile(
+        test_module="""
+def my_function():
+    \"\"\"
+    ```python fixture:async_docstring_value
+    assert async_docstring_value == "docstring_async"
+    ```
+    \"\"\"
+    pass
+"""
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_async_fixture_with_sync_fixture(testdir):
+    """Test that async fixtures work alongside regular sync fixtures."""
+    testdir.makeconftest(
+        """
+import pytest
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def async_value():
+    return "async_hello"
+
+@pytest.fixture
+def sync_value():
+    return "sync_world"
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:async_value fixture:sync_value
+assert async_value == "async_hello"
+assert sync_value == "sync_world"
+assert async_value + " " + sync_value == "async_hello sync_world"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)

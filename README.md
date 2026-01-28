@@ -120,6 +120,29 @@ assert captured.out == "hello\n"
 
 As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
 
+### Async Fixtures (pytest-asyncio)
+
+If you have [pytest-asyncio](https://pypi.org/project/pytest-asyncio/) installed, you can use async fixtures with your markdown tests. The async fixture will be executed and its resolved value will be injected into the test code:
+
+```python
+# conftest.py
+import pytest_asyncio
+
+@pytest_asyncio.fixture
+async def async_data():
+    # Simulate async data fetching
+    return {"status": "ok", "value": 42}
+```
+
+````markdown
+```python fixture:async_data
+assert async_data["status"] == "ok"
+assert async_data["value"] == 42
+```
+````
+
+Async fixtures can depend on other async fixtures, sync fixtures, or a mix of both. The fixture values are fully resolved before being passed to your markdown test code.
+
 ### Depending on previous snippets
 
 If you have multiple snippets following each other and want to keep the side
