@@ -309,6 +309,7 @@ def _preprocess_async_fixtures_if_available(collector: pytest.Collector) -> None
 class MarkdownDocstringCodeModule(pytest.Module):
     def collect(self):
         # Trigger pytest-asyncio's async fixture preprocessing if available
+        # (needed for pytest-asyncio 0.23.x; 1.x uses pytest_fixture_setup hook instead)
         _preprocess_async_fixtures_if_available(self)
 
         if pytest.version_tuple >= (8, 1, 0):
@@ -389,6 +390,7 @@ class MarkdownDocstringCodeModule(pytest.Module):
 class MarkdownTextFile(pytest.File):
     def collect(self):
         # Trigger pytest-asyncio's async fixture preprocessing if available
+        # (needed for pytest-asyncio 0.23.x; 1.x uses pytest_fixture_setup hook instead)
         _preprocess_async_fixtures_if_available(self)
 
         markdown_content = self.path.read_text("utf8")
