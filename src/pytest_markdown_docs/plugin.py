@@ -291,18 +291,15 @@ def _preprocess_async_fixtures_if_available(collector: pytest.Collector) -> None
     for our markdown collectors so that async fixtures work correctly.
     """
     try:
-        from pytest_asyncio.plugin import (
+        from pytest_asyncio.plugin import (  # type: ignore
             _preprocess_async_fixtures,
             _HOLDER,
         )
 
         _preprocess_async_fixtures(collector, _HOLDER)
     except ImportError:
-        # pytest-asyncio is not installed, nothing to do
-        pass
-    except Exception:
-        # If anything else goes wrong, don't break markdown-docs
-        # The user will get an error about the coroutine not being awaited
+        # pytest-asyncio is not installed, or using a newer version that
+        # doesn't require these imports
         pass
 
 
