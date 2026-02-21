@@ -1,5 +1,7 @@
 import abc
 import ast
+import asyncio
+import inspect
 import traceback
 import typing
 from abc import abstractmethod
@@ -14,7 +16,9 @@ _registered_runners = {}
 
 class _Runner(metaclass=abc.ABCMeta):
     @abstractmethod
-    def runtest(self, test: FenceTestDefinition, args: dict[str, typing.Any]): ...
+    def runtest(
+        self, test: FenceTestDefinition, args: dict[str, typing.Any]
+    ): ...
 
     @abstractmethod
     def repr_failure(
@@ -52,20 +56,20 @@ def register_runner(*, default: bool = False):
 class DefaultRunner(_Runner):
     def runtest(self, test: FenceTestDefinition, args):
         try:
-            tree = ast.parse(test.source, filename=test.source_path)
-        except SyntaxError:
-            raise
-
-        try:
-            # if we don't compile the code, it seems we get name lookup errors
-            # for functions etc. when doing cross-calls across inline functions
             compiled = compile(
-                tree, filename=test.source_path, mode="exec", dont_inherit=True
+                test.source,
+                filename=test.source_path,
+                mode="exec",
+                flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
+                dont_inherit=True,
             )
         except SyntaxError:
             raise
 
-        exec(compiled, args)
+        if compiled.co_flags & inspect.CO_COROUTINE:
+            asyncio.run(eval(compiled, args))
+        else:
+            exec(compiled, args)
 
     def repr_failure(
         self,
@@ -82,7 +86,9 @@ class DefaultRunner(_Runner):
 
         # custom formatted traceback to translate line numbers and markdown files
         traceback_lines = []
-        stack_summary = traceback.StackSummary.extract(traceback.walk_tb(excinfo.tb))
+        stack_summary = traceback.StackSummary.extract(
+            traceback.walk_tb(excinfo.tb)
+        )
         start_capture = False
 
         start_line = test.start_line
