@@ -141,7 +141,9 @@ Traceback \(most recent call last\):
     raise Exception\("doh"\)
 Exception: doh
 """.strip()
-    pytest_output = "\n".join(line.rstrip() for line in result.outlines).strip()
+    pytest_output = "\n".join(
+        line.rstrip() for line in result.outlines
+    ).strip()
     assert re.search(expected_output_pattern, pytest_output) is not None, (
         "Output traceback doesn't match expected value"
     )
@@ -372,7 +374,9 @@ def test_superfences_format_markdown(testdir):
         ```
     """,
     )
-    result = testdir.runpytest("--markdown-docs", "--markdown-docs-syntax=superfences")
+    result = testdir.runpytest(
+        "--markdown-docs", "--markdown-docs-syntax=superfences"
+    )
     result.assert_outcomes(passed=3)
 
 
@@ -391,7 +395,9 @@ def test_superfences_format_docstring(testdir):
             \"\"\"
         """
     )
-    result = testdir.runpytest("--markdown-docs", "--markdown-docs-syntax=superfences")
+    result = testdir.runpytest(
+        "--markdown-docs", "--markdown-docs-syntax=superfences"
+    )
     result.assert_outcomes(passed=2)
 
 
@@ -805,7 +811,9 @@ assert pytest_markdown_docs.async_setup_called == True
     result = testdir.runpytest("--markdown-docs", "-v")
     result.assert_outcomes(passed=1)
     # Verify teardown was called
-    assert getattr(pytest_markdown_docs, "async_teardown_called", False) is True
+    assert (
+        getattr(pytest_markdown_docs, "async_teardown_called", False) is True
+    )
     # Clean up
     delattr(pytest_markdown_docs, "async_setup_called")
     delattr(pytest_markdown_docs, "async_teardown_called")
@@ -976,3 +984,87 @@ assert async_value + " " + sync_value == "async_hello sync_world"
     )
     result = testdir.runpytest("--markdown-docs", "-v")
     result.assert_outcomes(passed=1)
+
+
+# ============================================================================
+# Top-level await tests
+# ============================================================================
+
+
+def test_top_level_await(testdir):
+    """Test that bare await at top level works in code blocks."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import asyncio
+await asyncio.sleep(0)
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_top_level_async_for(testdir):
+    """Test that async for at top level works in code blocks."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import asyncio
+
+async def arange(n):
+    for i in range(n):
+        yield i
+
+results = []
+async for i in arange(3):
+    results.append(i)
+assert results == [0, 1, 2]
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_top_level_async_with(testdir):
+    """Test that async with at top level works in code blocks."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import contextlib
+
+@contextlib.asynccontextmanager
+async def async_ctx():
+    yield "hello"
+
+async with async_ctx() as val:
+    assert val == "hello"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_continuation_with_await(testdir):
+    """Test that continuation blocks can use await with state from sync blocks."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+value = 42
+```
+
+```python continuation
+import asyncio
+await asyncio.sleep(0)
+assert value == 42
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
