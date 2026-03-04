@@ -141,9 +141,7 @@ Traceback \(most recent call last\):
     raise Exception\("doh"\)
 Exception: doh
 """.strip()
-    pytest_output = "\n".join(
-        line.rstrip() for line in result.outlines
-    ).strip()
+    pytest_output = "\n".join(line.rstrip() for line in result.outlines).strip()
     assert re.search(expected_output_pattern, pytest_output) is not None, (
         "Output traceback doesn't match expected value"
     )
@@ -374,9 +372,7 @@ def test_superfences_format_markdown(testdir):
         ```
     """,
     )
-    result = testdir.runpytest(
-        "--markdown-docs", "--markdown-docs-syntax=superfences"
-    )
+    result = testdir.runpytest("--markdown-docs", "--markdown-docs-syntax=superfences")
     result.assert_outcomes(passed=3)
 
 
@@ -395,9 +391,7 @@ def test_superfences_format_docstring(testdir):
             \"\"\"
         """
     )
-    result = testdir.runpytest(
-        "--markdown-docs", "--markdown-docs-syntax=superfences"
-    )
+    result = testdir.runpytest("--markdown-docs", "--markdown-docs-syntax=superfences")
     result.assert_outcomes(passed=2)
 
 
@@ -811,9 +805,7 @@ assert pytest_markdown_docs.async_setup_called == True
     result = testdir.runpytest("--markdown-docs", "-v")
     result.assert_outcomes(passed=1)
     # Verify teardown was called
-    assert (
-        getattr(pytest_markdown_docs, "async_teardown_called", False) is True
-    )
+    assert getattr(pytest_markdown_docs, "async_teardown_called", False) is True
     # Clean up
     delattr(pytest_markdown_docs, "async_setup_called")
     delattr(pytest_markdown_docs, "async_teardown_called")
@@ -1068,3 +1060,30 @@ assert value == 42
     )
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(passed=2)
+
+
+def test_async_fixture_shares_event_loop(testdir):
+    """Async fixture and top-level await code block must share the same event loop."""
+    testdir.makeini("[pytest]\nasyncio_mode = auto\n")
+    testdir.makeconftest(
+        """
+import asyncio
+import pytest
+
+@pytest.fixture
+async def loop_id():
+    return id(asyncio.get_running_loop())
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:loop_id
+import asyncio
+await asyncio.sleep(0)
+assert loop_id == id(asyncio.get_running_loop())
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)

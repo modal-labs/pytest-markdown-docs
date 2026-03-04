@@ -52,6 +52,14 @@ def get_docstring_start_line(obj) -> typing.Optional[int]:
     return None  # Docstring not found in source
 
 
+def _get_asyncio_runner(fixture_request):
+    """Try to fetch pytest-asyncio's event loop runner for shared-loop execution."""
+    try:
+        return fixture_request.getfixturevalue("_function_scoped_runner")
+    except Exception:
+        return None
+
+
 class MarkdownInlinePythonItem(pytest.Item):
     def __init__(
         self,
@@ -109,8 +117,17 @@ class MarkdownInlinePythonItem(pytest.Item):
             try:
                 # this ensures that pytest's stdout/stderr capture works during the test:
                 capman = self.config.pluginmanager.getplugin("capturemanager")
+                asyncio_runner = _get_asyncio_runner(self.fixture_request)
                 with capman.global_and_fixture_disabled():
-                    self.runner.runtest(self.test_definition, all_globals)
+                    try:
+                        self.runner.runtest(
+                            self.test_definition,
+                            all_globals,
+                            asyncio_runner=asyncio_runner,
+                        )
+                    except TypeError:
+                        # Custom runner doesn't accept asyncio_runner kwarg
+                        self.runner.runtest(self.test_definition, all_globals)
 
                 # Success - test passed
                 if attempt > 0:

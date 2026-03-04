@@ -16,9 +16,7 @@ _registered_runners = {}
 
 class _Runner(metaclass=abc.ABCMeta):
     @abstractmethod
-    def runtest(
-        self, test: FenceTestDefinition, args: dict[str, typing.Any]
-    ): ...
+    def runtest(self, test: FenceTestDefinition, args: dict[str, typing.Any]): ...
 
     @abstractmethod
     def repr_failure(
@@ -54,7 +52,7 @@ def register_runner(*, default: bool = False):
 
 @register_runner(default=True)
 class DefaultRunner(_Runner):
-    def runtest(self, test: FenceTestDefinition, args):
+    def runtest(self, test: FenceTestDefinition, args, *, asyncio_runner=None):
         try:
             compiled = compile(
                 test.source,
@@ -67,7 +65,11 @@ class DefaultRunner(_Runner):
             raise
 
         if compiled.co_flags & inspect.CO_COROUTINE:
-            asyncio.run(eval(compiled, args))
+            coro = eval(compiled, args)
+            if asyncio_runner is not None:
+                asyncio_runner.run(coro)
+            else:
+                asyncio.run(coro)
         else:
             exec(compiled, args)
 
@@ -86,9 +88,7 @@ class DefaultRunner(_Runner):
 
         # custom formatted traceback to translate line numbers and markdown files
         traceback_lines = []
-        stack_summary = traceback.StackSummary.extract(
-            traceback.walk_tb(excinfo.tb)
-        )
+        stack_summary = traceback.StackSummary.extract(traceback.walk_tb(excinfo.tb))
         start_capture = False
 
         start_line = test.start_line
