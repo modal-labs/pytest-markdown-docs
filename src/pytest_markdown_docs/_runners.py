@@ -1,6 +1,5 @@
 import abc
 import ast
-import asyncio
 import inspect
 import traceback
 import typing
@@ -65,11 +64,14 @@ class DefaultRunner(_Runner):
             raise
 
         if compiled.co_flags & inspect.CO_COROUTINE:
+            if asyncio_runner is None:
+                raise RuntimeError(
+                    "Top-level async code in markdown code blocks is not natively supported.\n"
+                    "You need to install pytest-asyncio to run async code blocks:\n"
+                    "  pip install pytest-asyncio"
+                )
             coro = eval(compiled, args)
-            if asyncio_runner is not None:
-                asyncio_runner.run(coro)
-            else:
-                asyncio.run(coro)
+            asyncio_runner.run(coro)
         else:
             exec(compiled, args)
 

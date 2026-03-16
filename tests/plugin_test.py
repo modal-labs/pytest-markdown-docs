@@ -1087,3 +1087,25 @@ assert loop_id == id(asyncio.get_running_loop())
     )
     result = testdir.runpytest("--markdown-docs", "-v")
     result.assert_outcomes(passed=1)
+
+
+def test_top_level_await_requires_pytest_asyncio(testdir):
+    """Async code blocks should error clearly when pytest-asyncio is not installed."""
+    testdir.makeconftest(
+        """
+import pytest_markdown_docs.plugin as _plugin
+_plugin._get_asyncio_runner = lambda *a, **kw: None
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import asyncio
+await asyncio.sleep(0)
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*pytest-asyncio*"])
