@@ -976,3 +976,136 @@ assert async_value + " " + sync_value == "async_hello sync_world"
     )
     result = testdir.runpytest("--markdown-docs", "-v")
     result.assert_outcomes(passed=1)
+
+
+# ============================================================================
+# Top-level await tests
+# ============================================================================
+
+
+def test_top_level_await(testdir):
+    """Test that bare await at top level works in code blocks."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import asyncio
+await asyncio.sleep(0)
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_top_level_async_for(testdir):
+    """Test that async for at top level works in code blocks."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import asyncio
+
+async def arange(n):
+    for i in range(n):
+        yield i
+
+results = []
+async for i in arange(3):
+    results.append(i)
+assert results == [0, 1, 2]
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_top_level_async_with(testdir):
+    """Test that async with at top level works in code blocks."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import contextlib
+
+@contextlib.asynccontextmanager
+async def async_ctx():
+    yield "hello"
+
+async with async_ctx() as val:
+    assert val == "hello"
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
+def test_continuation_with_await(testdir):
+    """Test that continuation blocks can use await with state from sync blocks."""
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+value = 42
+```
+
+```python continuation
+import asyncio
+await asyncio.sleep(0)
+assert value == 42
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
+
+
+def test_async_fixture_shares_event_loop(testdir):
+    """Async fixture and top-level await code block must share the same event loop."""
+    testdir.makeini("[pytest]\nasyncio_mode = auto\n")
+    testdir.makeconftest(
+        """
+import asyncio
+import pytest
+
+@pytest.fixture
+async def loop_id():
+    return id(asyncio.get_running_loop())
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python fixture:loop_id
+import asyncio
+await asyncio.sleep(0)
+assert loop_id == id(asyncio.get_running_loop())
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs", "-v")
+    result.assert_outcomes(passed=1)
+
+
+def test_top_level_await_requires_pytest_asyncio(testdir):
+    """Async code blocks should error clearly when pytest-asyncio is not installed."""
+    testdir.makeconftest(
+        """
+import pytest_markdown_docs.plugin as _plugin
+_plugin._get_asyncio_runner = lambda *a, **kw: None
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import asyncio
+await asyncio.sleep(0)
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*pytest-asyncio*"])

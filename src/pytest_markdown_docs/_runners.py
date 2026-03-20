@@ -1,5 +1,6 @@
 import abc
 import ast
+import inspect
 import traceback
 import typing
 from abc import abstractmethod
@@ -50,22 +51,29 @@ def register_runner(*, default: bool = False):
 
 @register_runner(default=True)
 class DefaultRunner(_Runner):
-    def runtest(self, test: FenceTestDefinition, args):
+    def runtest(self, test: FenceTestDefinition, args, *, asyncio_runner=None):
         try:
-            tree = ast.parse(test.source, filename=test.source_path)
-        except SyntaxError:
-            raise
-
-        try:
-            # if we don't compile the code, it seems we get name lookup errors
-            # for functions etc. when doing cross-calls across inline functions
             compiled = compile(
-                tree, filename=test.source_path, mode="exec", dont_inherit=True
+                test.source,
+                filename=test.source_path,
+                mode="exec",
+                flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
+                dont_inherit=True,
             )
         except SyntaxError:
             raise
 
-        exec(compiled, args)
+        if compiled.co_flags & inspect.CO_COROUTINE:
+            if asyncio_runner is None:
+                raise RuntimeError(
+                    "Top-level async code in markdown code blocks is not natively supported.\n"
+                    "You need to install pytest-asyncio to run async code blocks:\n"
+                    "  pip install pytest-asyncio"
+                )
+            coro = eval(compiled, args)
+            asyncio_runner.run(coro)
+        else:
+            exec(compiled, args)
 
     def repr_failure(
         self,
