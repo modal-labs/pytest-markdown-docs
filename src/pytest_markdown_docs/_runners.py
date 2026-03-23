@@ -67,8 +67,8 @@ class DefaultRunner(_Runner):
             if asyncio_runner is None:
                 raise RuntimeError(
                     "Top-level async code in markdown code blocks is not natively supported.\n"
-                    "You need to install pytest-asyncio to run async code blocks:\n"
-                    "  pip install pytest-asyncio"
+                    "You need pytest-asyncio>=1.1.0 to run async code blocks:\n"
+                    "  pip install 'pytest-asyncio>=1.1.0'"
                 )
             coro = eval(compiled, args)
             asyncio_runner.run(coro)
