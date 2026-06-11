@@ -61,15 +61,6 @@ def _get_asyncio_runner(fixture_request):
         return None
 
 
-def _runner_name_for_language_from_config(config):
-    def runner_name_for_language(language: str) -> typing.Optional[str]:
-        return config.hook.pytest_markdown_docs_runner_name_for_language(
-            language=language
-        )
-
-    return runner_name_for_language
-
-
 class MarkdownInlinePythonItem(pytest.Item):
     def __init__(
         self,
@@ -183,9 +174,6 @@ def extract_fence_tests(
     source_path: pathlib.Path,
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
-    runner_name_for_language: typing.Optional[
-        typing.Callable[[str], typing.Optional[str]]
-    ] = None,
 ) -> typing.Generator[FenceTestDefinition, None, None]:
     tokens = markdown_it_parser.parse(markdown_string)
 
@@ -216,14 +204,14 @@ def extract_fence_tests(
             if i >= 2 and is_mdx_comment(tokens[i - 2]):
                 code_options |= extract_options_from_mdx_comment(tokens[i - 2].content)
 
-        if lang is not None and "notest" not in code_options:
-            runner_names = get_prefixed_strings(code_options, "runner:")
+        runner_names = get_prefixed_strings(code_options, "runner:")
+        if (
+            lang is not None
+            and "notest" not in code_options
+            and (lang in _PYTHON_FENCE_LANGUAGES or runner_names)
+        ):
             if len(runner_names) == 0:
                 runner_name = None
-                if runner_name_for_language is not None:
-                    runner_name = runner_name_for_language(lang)
-                if runner_name is None and lang not in _PYTHON_FENCE_LANGUAGES:
-                    continue
             elif len(runner_names) > 1:
                 raise Exception(
                     f"Multiple runners are not supported, use a single one instead: {runner_names}"
@@ -406,9 +394,6 @@ class MarkdownDocstringCodeModule(pytest.Module):
                         docstring_offset,
                         source_path=self.path,
                         fence_syntax=fence_syntax,
-                        runner_name_for_language=_runner_name_for_language_from_config(
-                            self.config
-                        ),
                     )
                 ):
                     found_test = ObjectTestDefinition(i, obj_name, fence_test)
@@ -440,9 +425,6 @@ class MarkdownTextFile(pytest.File):
                 start_line_offset=0,
                 markdown_type=self.path.suffix.replace(".", ""),
                 fence_syntax=fence_syntax,
-                runner_name_for_language=_runner_name_for_language_from_config(
-                    self.config
-                ),
             )
         ):
             yield MarkdownInlinePythonItem.from_parent(

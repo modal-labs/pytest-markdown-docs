@@ -66,8 +66,8 @@ Fence blocks (` ``` `) starting with the `python`, `python3` or `py` language de
 * Python (.py) files, within docstrings of classes and functions
 * `.md`, `.mdx` and `.svx` files
 
-Other code fence languages are ignored unless you explicitly map them to a
-custom runner.
+Other code fence languages are ignored unless they explicitly select a
+registered custom runner.
 
 ## Skipping tests
 
@@ -181,38 +181,25 @@ With `retry:3`, the test runs up to 4 times total (1 initial attempt + 3 retries
 - All exceptions trigger retries (AssertionError, RuntimeError, etc.)
 - When using a continuation block, only the failing block retries
 
-### Custom runners and languages
+### Custom runners
 
-Python code fences use the built-in runner by default. Other languages can be
-collected by registering a custom runner and returning its name from the
-`pytest_markdown_docs_runner_name_for_language` hook:
+Python code fences use the built-in runner by default. You can select a
+registered custom runner for an individual fence by adding `runner:<name>` to the
+info string:
 
 ```python
 # conftest.py
-import pytest_markdown_docs
+import pytest_markdown_docs._runners
 
 
-@pytest_markdown_docs.register_runner()
-class TextRunner(pytest_markdown_docs.DefaultRunner):
+@pytest_markdown_docs._runners.register_runner()
+class TextRunner(pytest_markdown_docs._runners.DefaultRunner):
     def runtest(self, test, args):
         assert "expected output" in test.source
-
-
-def pytest_markdown_docs_runner_name_for_language(language):
-    if language == "text":
-        return "TextRunner"
 ```
 
-With this conftest, `text` fences are collected as tests:
-
-````markdown
-```text
-expected output
-```
-````
-
-You can also select a runner for a single fence by adding `runner:<name>` to the
-info string:
+With this conftest, a `text` fence can be collected as a test by explicitly
+selecting the runner:
 
 ````markdown
 ```text runner:TextRunner

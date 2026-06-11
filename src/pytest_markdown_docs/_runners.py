@@ -10,7 +10,7 @@ import pytest
 from pytest_markdown_docs.definitions import FenceTestDefinition
 
 _default_runner: typing.Optional["_Runner"] = None
-_registered_runners: typing.Dict[str, "_Runner"] = {}
+_registered_runners = {}
 
 
 class _Runner(metaclass=abc.ABCMeta):
