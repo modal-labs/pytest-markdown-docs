@@ -29,6 +29,7 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger("pytest-markdown-docs")
 
 MARKER_NAME = "markdown-docs"
+_PYTHON_FENCE_LANGUAGES = frozenset(("py", "python", "python3"))
 
 
 class FenceSyntax(Enum):
@@ -58,6 +59,15 @@ def _get_asyncio_runner(fixture_request):
         return fixture_request.getfixturevalue("_function_scoped_runner")
     except Exception:
         return None
+
+
+def _runner_name_for_language_from_config(config):
+    def runner_name_for_language(language: str) -> typing.Optional[str]:
+        return config.hook.pytest_markdown_docs_runner_name_for_language(
+            language=language
+        )
+
+    return runner_name_for_language
 
 
 class MarkdownInlinePythonItem(pytest.Item):
@@ -173,6 +183,9 @@ def extract_fence_tests(
     source_path: pathlib.Path,
     markdown_type: str = "md",
     fence_syntax: FenceSyntax = FenceSyntax.default,
+    runner_name_for_language: typing.Optional[
+        typing.Callable[[str], typing.Optional[str]]
+    ] = None,
 ) -> typing.Generator[FenceTestDefinition, None, None]:
     tokens = markdown_it_parser.parse(markdown_string)
 
@@ -203,7 +216,21 @@ def extract_fence_tests(
             if i >= 2 and is_mdx_comment(tokens[i - 2]):
                 code_options |= extract_options_from_mdx_comment(tokens[i - 2].content)
 
-        if lang in ("py", "python", "python3") and "notest" not in code_options:
+        if lang is not None and "notest" not in code_options:
+            runner_names = get_prefixed_strings(code_options, "runner:")
+            if len(runner_names) == 0:
+                runner_name = None
+                if runner_name_for_language is not None:
+                    runner_name = runner_name_for_language(lang)
+                if runner_name is None and lang not in _PYTHON_FENCE_LANGUAGES:
+                    continue
+            elif len(runner_names) > 1:
+                raise Exception(
+                    f"Multiple runners are not supported, use a single one instead: {runner_names}"
+                )
+            else:
+                runner_name = runner_names[0]
+
             start_line = (
                 start_line_offset + block.map[0] + 1
             )  # actual code starts on +1 from the "info" line
@@ -214,16 +241,6 @@ def extract_fence_tests(
             code_block = prev + ("\n" * add_blank_lines) + block.content
 
             fixture_names = get_prefixed_strings(code_options, "fixture:")
-            runner_names = get_prefixed_strings(code_options, "runner:")
-            if len(runner_names) == 0:
-                runner_name = None
-            elif len(runner_names) > 1:
-                raise Exception(
-                    f"Multiple runners are not supported, use a single one instead: {runner_names}"
-                )
-            else:
-                runner_name = runner_names[0]
-
             retry_counts = get_prefixed_strings(code_options, "retry:")
             if len(retry_counts) == 0:
                 max_retries = 0
@@ -389,6 +406,9 @@ class MarkdownDocstringCodeModule(pytest.Module):
                         docstring_offset,
                         source_path=self.path,
                         fence_syntax=fence_syntax,
+                        runner_name_for_language=_runner_name_for_language_from_config(
+                            self.config
+                        ),
                     )
                 ):
                     found_test = ObjectTestDefinition(i, obj_name, fence_test)
@@ -420,6 +440,9 @@ class MarkdownTextFile(pytest.File):
                 start_line_offset=0,
                 markdown_type=self.path.suffix.replace(".", ""),
                 fence_syntax=fence_syntax,
+                runner_name_for_language=_runner_name_for_language_from_config(
+                    self.config
+                ),
             )
         ):
             yield MarkdownInlinePythonItem.from_parent(

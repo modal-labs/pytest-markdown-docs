@@ -66,6 +66,9 @@ Fence blocks (` ``` `) starting with the `python`, `python3` or `py` language de
 * Python (.py) files, within docstrings of classes and functions
 * `.md`, `.mdx` and `.svx` files
 
+Other code fence languages are ignored unless you explicitly map them to a
+custom runner.
+
 ## Skipping tests
 
 To exclude a Python code fence from testing, add a `notest` info string to the
@@ -178,6 +181,45 @@ With `retry:3`, the test runs up to 4 times total (1 initial attempt + 3 retries
 - All exceptions trigger retries (AssertionError, RuntimeError, etc.)
 - When using a continuation block, only the failing block retries
 
+### Custom runners and languages
+
+Python code fences use the built-in runner by default. Other languages can be
+collected by registering a custom runner and returning its name from the
+`pytest_markdown_docs_runner_name_for_language` hook:
+
+```python
+# conftest.py
+import pytest_markdown_docs
+
+
+@pytest_markdown_docs.register_runner()
+class TextRunner(pytest_markdown_docs.DefaultRunner):
+    def runtest(self, test, args):
+        assert "expected output" in test.source
+
+
+def pytest_markdown_docs_runner_name_for_language(language):
+    if language == "text":
+        return "TextRunner"
+```
+
+With this conftest, `text` fences are collected as tests:
+
+````markdown
+```text
+expected output
+```
+````
+
+You can also select a runner for a single fence by adding `runner:<name>` to the
+info string:
+
+````markdown
+```text runner:TextRunner
+expected output
+```
+````
+
 ### Compatibility with Material for MkDocs
 
 Material for Mkdocs is not compatible with the default syntax.
@@ -209,6 +251,7 @@ The following options can be specified using MDX comments:
 * fixture:<name>: Apply named pytest fixtures to the code block.
 * continuation: Continue from the previous code block, allowing you to carry over state.
 * retry:<count>: Automatically retry the test up to the specified number of times if it fails.
+* runner:<name>: Run the code block with a registered custom runner.
 
 This approach allows you to add metadata to the code block without modifying the code fence itself, making it particularly useful in MDX environments.
 

@@ -472,6 +472,321 @@ def test_custom_runner(testdir):
     )
 
 
+def test_non_python_fence_without_runner_is_ignored(testdir):
+    testdir.makefile(
+        ".md",
+        """
+        ```text
+        this is not collected
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=0)
+
+
+def test_runner_name_for_language_hook_collects_non_python_fence(testdir):
+    if hasattr(pytest_markdown_docs, "text_fence"):
+        delattr(pytest_markdown_docs, "text_fence")
+
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
+
+        @pytest_markdown_docs._runners.register_runner()
+        class TextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                pytest_markdown_docs.text_fence = test.source.strip()
+
+        def pytest_markdown_docs_runner_name_for_language(language):
+            if language == "text":
+                return "TextRunner"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```text
+        hello from text
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    assert getattr(pytest_markdown_docs, "text_fence", None) == "hello from text"
+    delattr(pytest_markdown_docs, "text_fence")
+
+
+def test_explicit_runner_collects_non_python_fence(testdir):
+    if hasattr(pytest_markdown_docs, "explicit_text_fence"):
+        delattr(pytest_markdown_docs, "explicit_text_fence")
+
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+
+        @pytest_markdown_docs.register_runner()
+        class ExplicitTextRunner(pytest_markdown_docs.DefaultRunner):
+            def runtest(self, test, args):
+                pytest_markdown_docs.explicit_text_fence = test.source.strip()
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```text runner:ExplicitTextRunner
+        hello from explicit text
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    assert (
+        getattr(pytest_markdown_docs, "explicit_text_fence", None)
+        == "hello from explicit text"
+    )
+    delattr(pytest_markdown_docs, "explicit_text_fence")
+
+
+def test_explicit_runner_takes_precedence_over_language_hook(testdir):
+    if hasattr(pytest_markdown_docs, "selected_text_runner"):
+        delattr(pytest_markdown_docs, "selected_text_runner")
+
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
+
+        @pytest_markdown_docs._runners.register_runner()
+        class HookTextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                pytest_markdown_docs.selected_text_runner = "hook"
+
+        @pytest_markdown_docs._runners.register_runner()
+        class ExplicitTextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                pytest_markdown_docs.selected_text_runner = "explicit"
+
+        def pytest_markdown_docs_runner_name_for_language(language):
+            if language == "text":
+                return "HookTextRunner"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```text runner:ExplicitTextRunner
+        hello from explicit text
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    assert getattr(pytest_markdown_docs, "selected_text_runner", None) == "explicit"
+    delattr(pytest_markdown_docs, "selected_text_runner")
+
+
+def test_runner_name_for_language_hook_collects_non_python_docstring_fence(testdir):
+    if hasattr(pytest_markdown_docs, "docstring_text_fence"):
+        delattr(pytest_markdown_docs, "docstring_text_fence")
+
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
+
+        @pytest_markdown_docs._runners.register_runner()
+        class DocstringTextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                pytest_markdown_docs.docstring_text_fence = test.source.strip()
+
+        def pytest_markdown_docs_runner_name_for_language(language):
+            if language == "text":
+                return "DocstringTextRunner"
+    """
+    )
+    testdir.makepyfile(
+        """
+        def documented():
+            \"\"\"
+            ```text
+            hello from docstring text
+            ```
+            \"\"\"
+    """
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    assert (
+        getattr(pytest_markdown_docs, "docstring_text_fence", None)
+        == "hello from docstring text"
+    )
+    delattr(pytest_markdown_docs, "docstring_text_fence")
+
+
+def test_non_python_runner_receives_requested_fixtures(testdir):
+    if hasattr(pytest_markdown_docs, "text_fixture_value"):
+        delattr(pytest_markdown_docs, "text_fixture_value")
+
+    testdir.makeconftest(
+        """
+        import pytest
+        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
+
+        @pytest.fixture()
+        def text_value():
+            return "from fixture"
+
+        @pytest_markdown_docs._runners.register_runner()
+        class FixtureTextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                pytest_markdown_docs.text_fixture_value = args["text_value"]
+
+        def pytest_markdown_docs_runner_name_for_language(language):
+            if language == "text":
+                return "FixtureTextRunner"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```text fixture:text_value
+        fixture-backed text
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    assert getattr(pytest_markdown_docs, "text_fixture_value", None) == "from fixture"
+    delattr(pytest_markdown_docs, "text_fixture_value")
+
+
+def test_continuation_with_runner_name_for_language_hook(testdir):
+    if hasattr(pytest_markdown_docs, "text_fence_runs"):
+        delattr(pytest_markdown_docs, "text_fence_runs")
+
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
+
+        @pytest_markdown_docs._runners.register_runner()
+        class ContinuationTextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                run = [line for line in test.source.splitlines() if line]
+                runs = getattr(pytest_markdown_docs, "text_fence_runs", [])
+                runs.append(run)
+                pytest_markdown_docs.text_fence_runs = runs
+
+        def pytest_markdown_docs_runner_name_for_language(language):
+            if language == "text":
+                return "ContinuationTextRunner"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```text
+        alpha
+        ```
+
+        ```text continuation
+        beta
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
+    assert getattr(pytest_markdown_docs, "text_fence_runs", None) == [
+        ["alpha"],
+        ["alpha", "beta"],
+    ]
+    delattr(pytest_markdown_docs, "text_fence_runs")
+
+
+def test_retry_with_runner_name_for_language_hook(testdir):
+    if hasattr(pytest_markdown_docs, "text_retry_attempts"):
+        delattr(pytest_markdown_docs, "text_retry_attempts")
+
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
+
+        @pytest_markdown_docs._runners.register_runner()
+        class RetryTextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                attempts = getattr(pytest_markdown_docs, "text_retry_attempts", 0)
+                pytest_markdown_docs.text_retry_attempts = attempts + 1
+                assert pytest_markdown_docs.text_retry_attempts >= 2
+
+        def pytest_markdown_docs_runner_name_for_language(language):
+            if language == "text":
+                return "RetryTextRunner"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```text retry:2
+        flaky text
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    assert getattr(pytest_markdown_docs, "text_retry_attempts", None) == 2
+    delattr(pytest_markdown_docs, "text_retry_attempts")
+
+
+def test_notest_with_runner_name_for_language_hook_skips_non_python_fence(testdir):
+    if hasattr(pytest_markdown_docs, "notest_text_fence"):
+        delattr(pytest_markdown_docs, "notest_text_fence")
+
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
+
+        @pytest_markdown_docs._runners.register_runner()
+        class NotestTextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                pytest_markdown_docs.notest_text_fence = test.source.strip()
+
+        def pytest_markdown_docs_runner_name_for_language(language):
+            if language == "text":
+                return "NotestTextRunner"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```text notest
+        this should not run
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=0)
+    assert not hasattr(pytest_markdown_docs, "notest_text_fence")
+
+
+def test_multiple_runner_options_error_for_non_python_fence(testdir):
+    testdir.makefile(
+        ".md",
+        """
+        ```text runner:OneRunner runner:OtherRunner
+        invalid
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(["*Multiple runners are not supported*"])
+
+
 def test_admonition_markdown_text_file(testdir):
     testdir.makeconftest(
         """
