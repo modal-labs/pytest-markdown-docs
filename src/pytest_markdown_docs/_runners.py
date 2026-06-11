@@ -33,7 +33,7 @@ RUNNER_TYPE = typing.TypeVar("RUNNER_TYPE", bound=type[_Runner])
 def register_runner(
     *,
     default: bool = False,
-    languages: typing.Collection[str] = (),
+    default_for: typing.Collection[str] = (),
 ):
     """Decorator for adding custom runners
 
@@ -49,7 +49,7 @@ def register_runner(
         _registered_runners[r.__name__] = runner
         if default:
             _default_runner = runner
-        for language in languages:
+        for language in default_for:
             _registered_language_runner_names[language] = r.__name__
         return r
 
