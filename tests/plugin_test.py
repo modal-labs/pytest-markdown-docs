@@ -517,6 +517,38 @@ def test_explicit_runner_collects_non_python_fence(testdir):
     delattr(pytest_markdown_docs, "explicit_text_fence")
 
 
+def test_language_runner_collects_non_python_fence(testdir):
+    if hasattr(pytest_markdown_docs, "language_text_fence"):
+        delattr(pytest_markdown_docs, "language_text_fence")
+
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs
+        import pytest_markdown_docs._runners
+
+        @pytest_markdown_docs._runners.register_runner(languages=("text",))
+        class LanguageTextRunner(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                pytest_markdown_docs.language_text_fence = test.source.strip()
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```text
+        hello from a language runner
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    assert (
+        getattr(pytest_markdown_docs, "language_text_fence", None)
+        == "hello from a language runner"
+    )
+    delattr(pytest_markdown_docs, "language_text_fence")
+
+
 def test_multiple_runner_options_error_for_non_python_fence(testdir):
     testdir.makefile(
         ".md",

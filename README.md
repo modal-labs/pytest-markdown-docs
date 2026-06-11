@@ -207,6 +207,23 @@ expected output
 ```
 ````
 
+You can also register a runner as the default for one or more fence languages:
+
+```python
+@pytest_markdown_docs._runners.register_runner(languages=("text",))
+class TextRunner(pytest_markdown_docs._runners.DefaultRunner):
+    def runtest(self, test, args):
+        assert "expected output" in test.source
+```
+
+With this conftest, plain `text` fences are collected:
+
+````markdown
+```text
+expected output
+```
+````
+
 ### Compatibility with Material for MkDocs
 
 Material for Mkdocs is not compatible with the default syntax.
