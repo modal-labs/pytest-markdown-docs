@@ -210,7 +210,7 @@ expected output
 You can also register a runner as the default for one or more fence languages:
 
 ```python
-@pytest_markdown_docs._runners.register_runner(languages=("text",))
+@pytest_markdown_docs._runners.register_runner(default_for=("text",))
 class TextRunner(pytest_markdown_docs._runners.DefaultRunner):
     def runtest(self, test, args):
         assert "expected output" in test.source
@@ -223,6 +223,17 @@ With this conftest, plain `text` fences are collected:
 expected output
 ```
 ````
+
+Runner selection uses this order:
+
+1. A fence with `runner:<name>` uses that named runner.
+2. A fence whose language is listed in `default_for` uses that runner.
+3. Built-in Python fences (`py`, `python`, `python3`) use the global default
+   runner.
+
+This means `default_for=("python",)` affects only ```` ```python ```` fences,
+while `default=True` changes the global default used by Python fences that do
+not have a more specific runner.
 
 ### Compatibility with Material for MkDocs
 
