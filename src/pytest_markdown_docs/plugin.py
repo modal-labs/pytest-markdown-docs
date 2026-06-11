@@ -210,6 +210,7 @@ def extract_fence_tests(
                 raise Exception(
                     f"Multiple runners are not supported, use a single one instead: {runner_names}"
                 )
+            runner_name: typing.Optional[str]
             if len(runner_names) == 1:
                 runner_name = runner_names[0]
             else:
