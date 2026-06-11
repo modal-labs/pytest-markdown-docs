@@ -472,6 +472,30 @@ def test_custom_runner(testdir):
     )
 
 
+def test_runner_receives_fence_options(testdir):
+    testdir.makeconftest(
+        """
+        import pytest_markdown_docs._runners
+
+        @pytest_markdown_docs._runners.register_runner()
+        class OptionsChecker(pytest_markdown_docs._runners.DefaultRunner):
+            def runtest(self, test, args):
+                assert test.options == {"runner:OptionsChecker", "my_flag", "other:value"}
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```python runner:OptionsChecker my_flag other:value
+        pass
+        ```
+    """,
+    )
+
+    result = testdir.runpytest("-v", "--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
 def test_non_python_fence_without_runner_is_ignored(testdir):
     testdir.makefile(
         ".md",

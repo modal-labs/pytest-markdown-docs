@@ -252,6 +252,7 @@ def extract_fence_tests(
                 source_path=source_path,
                 runner_name=runner_name,
                 max_retries=max_retries,
+                options=frozenset(code_options),
             )
             prev = code_block
 
