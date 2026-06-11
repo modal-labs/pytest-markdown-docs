@@ -66,6 +66,9 @@ Fence blocks (` ``` `) starting with the `python`, `python3` or `py` language de
 * Python (.py) files, within docstrings of classes and functions
 * `.md`, `.mdx` and `.svx` files
 
+Other code fence languages are ignored unless they explicitly select a
+registered custom runner.
+
 ## Skipping tests
 
 To exclude a Python code fence from testing, add a `notest` info string to the
@@ -178,6 +181,60 @@ With `retry:3`, the test runs up to 4 times total (1 initial attempt + 3 retries
 - All exceptions trigger retries (AssertionError, RuntimeError, etc.)
 - When using a continuation block, only the failing block retries
 
+### Custom runners
+
+Python code fences use the built-in runner by default. You can select a
+registered custom runner for an individual fence by adding `runner:<name>` to the
+info string:
+
+```python
+# conftest.py
+import pytest_markdown_docs._runners
+
+
+@pytest_markdown_docs._runners.register_runner()
+class TextRunner(pytest_markdown_docs._runners.DefaultRunner):
+    def runtest(self, test, args):
+        assert "expected output" in test.source
+```
+
+With this conftest, a `text` fence can be collected as a test by explicitly
+selecting the runner:
+
+````markdown
+```text runner:TextRunner
+expected output
+```
+````
+
+You can also register a runner as the default for one or more fence languages:
+
+```python
+@pytest_markdown_docs._runners.register_runner(default_for=("text",))
+class TextRunner(pytest_markdown_docs._runners.DefaultRunner):
+    def runtest(self, test, args):
+        assert "expected output" in test.source
+```
+
+With this conftest, plain `text` fences are collected:
+
+````markdown
+```text
+expected output
+```
+````
+
+Runner selection uses this order:
+
+1. A fence with `runner:<name>` uses that named runner.
+2. A fence whose language is listed in `default_for` uses that runner.
+3. Built-in Python fences (`py`, `python`, `python3`) use the global default
+   runner.
+
+This means `default_for=("python",)` affects only ```` ```python ```` fences,
+while `default=True` changes the global default used by Python fences that do
+not have a more specific runner.
+
 ### Compatibility with Material for MkDocs
 
 Material for Mkdocs is not compatible with the default syntax.
@@ -209,6 +266,7 @@ The following options can be specified using MDX comments:
 * fixture:<name>: Apply named pytest fixtures to the code block.
 * continuation: Continue from the previous code block, allowing you to carry over state.
 * retry:<count>: Automatically retry the test up to the specified number of times if it fails.
+* runner:<name>: Run the code block with a registered custom runner.
 
 This approach allows you to add metadata to the code block without modifying the code fence itself, making it particularly useful in MDX environments.
 

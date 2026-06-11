@@ -13,7 +13,7 @@ import logging
 
 from pytest_markdown_docs import hooks
 from pytest_markdown_docs.definitions import FenceTestDefinition, ObjectTestDefinition
-from pytest_markdown_docs._runners import get_runner
+from pytest_markdown_docs._runners import get_runner, get_runner_name_for_language
 
 if pytest.version_tuple >= (8, 0, 0):
     from _pytest.fixtures import TopRequest
@@ -29,6 +29,7 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger("pytest-markdown-docs")
 
 MARKER_NAME = "markdown-docs"
+_PYTHON_FENCE_LANGUAGES = frozenset(("py", "python", "python3"))
 
 
 class FenceSyntax(Enum):
@@ -203,7 +204,20 @@ def extract_fence_tests(
             if i >= 2 and is_mdx_comment(tokens[i - 2]):
                 code_options |= extract_options_from_mdx_comment(tokens[i - 2].content)
 
-        if lang in ("py", "python", "python3") and "notest" not in code_options:
+        if lang is not None and "notest" not in code_options:
+            runner_names = get_prefixed_strings(code_options, "runner:")
+            if len(runner_names) > 1:
+                raise Exception(
+                    f"Multiple runners are not supported, use a single one instead: {runner_names}"
+                )
+            runner_name: typing.Optional[str]
+            if len(runner_names) == 1:
+                runner_name = runner_names[0]
+            else:
+                runner_name = get_runner_name_for_language(lang)
+                if runner_name is None and lang not in _PYTHON_FENCE_LANGUAGES:
+                    continue
+
             start_line = (
                 start_line_offset + block.map[0] + 1
             )  # actual code starts on +1 from the "info" line
@@ -214,16 +228,6 @@ def extract_fence_tests(
             code_block = prev + ("\n" * add_blank_lines) + block.content
 
             fixture_names = get_prefixed_strings(code_options, "fixture:")
-            runner_names = get_prefixed_strings(code_options, "runner:")
-            if len(runner_names) == 0:
-                runner_name = None
-            elif len(runner_names) > 1:
-                raise Exception(
-                    f"Multiple runners are not supported, use a single one instead: {runner_names}"
-                )
-            else:
-                runner_name = runner_names[0]
-
             retry_counts = get_prefixed_strings(code_options, "retry:")
             if len(retry_counts) == 0:
                 max_retries = 0
@@ -248,6 +252,7 @@ def extract_fence_tests(
                 source_path=source_path,
                 runner_name=runner_name,
                 max_retries=max_retries,
+                options=frozenset(code_options),
             )
             prev = code_block
 

@@ -10,7 +10,8 @@ import pytest
 from pytest_markdown_docs.definitions import FenceTestDefinition
 
 _default_runner: typing.Optional["_Runner"] = None
-_registered_runners = {}
+_registered_runners: typing.Dict[str, "_Runner"] = {}
+_registered_language_runner_names: dict[str, str] = {}
 
 
 class _Runner(metaclass=abc.ABCMeta):
@@ -29,7 +30,11 @@ class _Runner(metaclass=abc.ABCMeta):
 RUNNER_TYPE = typing.TypeVar("RUNNER_TYPE", bound=type[_Runner])
 
 
-def register_runner(*, default: bool = False):
+def register_runner(
+    *,
+    default: bool = False,
+    default_for: typing.Collection[str] = (),
+):
     """Decorator for adding custom runners
 
     e.g.
@@ -44,6 +49,8 @@ def register_runner(*, default: bool = False):
         _registered_runners[r.__name__] = runner
         if default:
             _default_runner = runner
+        for language in default_for:
+            _registered_language_runner_names[language] = r.__name__
         return r
 
     return decorator
@@ -139,3 +146,7 @@ def get_runner(name: typing.Optional[str]) -> _Runner:
     if name not in _registered_runners:
         raise Exception(f"No such pytest-markdown-docs runner: {name}")
     return _registered_runners[name]
+
+
+def get_runner_name_for_language(language: str) -> typing.Optional[str]:
+    return _registered_language_runner_names.get(language)
