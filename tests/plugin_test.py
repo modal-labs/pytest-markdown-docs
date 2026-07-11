@@ -472,6 +472,43 @@ def test_custom_runner(testdir):
     )
 
 
+def test_user_code_type_error_runs_block_once(testdir):
+    """A TypeError raised by the code block itself must not re-execute the block.
+
+    The asyncio_runner compatibility fallback used to catch TypeErrors from user
+    code and run the block a second time (doubled again by each retry attempt).
+    """
+    testdir.makepyfile(
+        conftest="""
+run_counts = {}
+"""
+    )
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+import conftest
+conftest.run_counts["plain"] = conftest.run_counts.get("plain", 0) + 1
+raise TypeError("user code error")
+```
+
+```python retry:2
+import conftest
+conftest.run_counts["retried"] = conftest.run_counts.get("retried", 0) + 1
+raise TypeError("user code error")
+```
+
+```python
+import conftest
+assert conftest.run_counts == {"plain": 1, "retried": 3}
+```
+""",
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1, failed=2)
+    result.stdout.fnmatch_lines(["*TypeError: user code error*"])
+
+
 def test_admonition_markdown_text_file(testdir):
     testdir.makeconftest(
         """
