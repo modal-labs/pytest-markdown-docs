@@ -60,6 +60,20 @@ def _get_asyncio_runner(fixture_request):
         return None
 
 
+def _accepts_asyncio_runner(runner) -> bool:
+    """Check if the runner's runtest signature accepts the asyncio_runner kwarg.
+
+    Custom runners written before the kwarg was introduced may not take it.
+    """
+    try:
+        parameters = inspect.signature(runner.runtest).parameters
+    except (TypeError, ValueError):
+        return False
+    return "asyncio_runner" in parameters or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()
+    )
+
+
 class MarkdownInlinePythonItem(pytest.Item):
     def __init__(
         self,
@@ -89,6 +103,7 @@ class MarkdownInlinePythonItem(pytest.Item):
         self.fixture_request = TopRequest(self, _ispytest=True)
         self.fixture_request._fillfixtures()
         self.runner = get_runner(self.runner_name)
+        self.runner_accepts_asyncio_runner = _accepts_asyncio_runner(self.runner)
 
     def runtest(self):
         global_sets = self.parent.config.hook.pytest_markdown_docs_globals()
@@ -119,14 +134,14 @@ class MarkdownInlinePythonItem(pytest.Item):
                 capman = self.config.pluginmanager.getplugin("capturemanager")
                 asyncio_runner = _get_asyncio_runner(self.fixture_request)
                 with capman.global_and_fixture_disabled():
-                    try:
+                    if self.runner_accepts_asyncio_runner:
                         self.runner.runtest(
                             self.test_definition,
                             all_globals,
                             asyncio_runner=asyncio_runner,
                         )
-                    except TypeError:
-                        # Custom runner doesn't accept asyncio_runner kwarg
+                    else:
+                        # Custom runner doesn't accept the asyncio_runner kwarg
                         self.runner.runtest(self.test_definition, all_globals)
 
                 # Success - test passed
