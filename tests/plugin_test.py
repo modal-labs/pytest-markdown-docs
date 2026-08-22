@@ -85,6 +85,62 @@ def test_markdown_text_file(testdir):
     result.assert_outcomes(passed=1, failed=2)
 
 
+def test_only_text_collection(testdir):
+    testdir.makepyfile(
+        """
+        def docstring_test():
+            \"\"\"
+            ```python
+            assert False
+            ```
+            \"\"\"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```python
+        assert True
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs", "--markdown-docs-only-text")
+    result.assert_outcomes(passed=1)
+
+
+def test_only_docstring_collection(testdir):
+    testdir.makepyfile(
+        """
+        def docstring_test():
+            \"\"\"
+            ```python
+            assert True
+            ```
+            \"\"\"
+    """
+    )
+    testdir.makefile(
+        ".md",
+        """
+        ```python
+        assert False
+        ```
+    """,
+    )
+    result = testdir.runpytest("--markdown-docs", "--markdown-docs-only-docstrings")
+    result.assert_outcomes(passed=1)
+
+
+def test_collection_scope_options_are_mutually_exclusive(testdir):
+    result = testdir.runpytest(
+        "--markdown-docs",
+        "--markdown-docs-only-docstrings",
+        "--markdown-docs-only-text",
+    )
+    assert result.ret != 0
+    result.stderr.fnmatch_lines(["*mutually exclusive*"])
+
+
 def test_continuation(testdir):
     testdir.makefile(
         ".md",
