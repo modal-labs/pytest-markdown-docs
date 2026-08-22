@@ -120,6 +120,20 @@ assert captured.out == "hello\n"
 
 As you can see above, the fixture value will be injected as a global. For `autouse=True` fixtures, the value is only injected as a global if it's explicitly added using a `fixture:<name>` marker.
 
+### The source file path
+
+Code fences receive a `__file__` global containing the path of the Markdown or
+Python file where the fence was found. This makes it possible to load fixtures
+stored next to a document:
+
+````markdown
+```python
+from pathlib import Path
+
+fixture = Path(__file__).with_name("fixture.json").read_text()
+```
+````
+
 ### Async Fixtures (pytest-asyncio)
 
 If you have [pytest-asyncio](https://pypi.org/project/pytest-asyncio/) installed, you can use async fixtures with your markdown tests. The async fixture will be executed and its resolved value will be injected into the test code:
