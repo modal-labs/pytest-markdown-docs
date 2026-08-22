@@ -53,6 +53,17 @@ To enable markdown python tests, pass the `--markdown-docs` flag to `pytest`:
 pytest --markdown-docs
 ```
 
+By default, both Python docstrings and standalone Markdown files are collected. To
+limit collection to one source, use one of the mutually exclusive scope options:
+
+```shell
+# Only code fences in .py docstrings
+pytest --markdown-docs --markdown-docs-only-docstrings
+
+# Only code fences in .md, .mdx, and .svx files
+pytest --markdown-docs --markdown-docs-only-text
+```
+
 You can also use the `markdown-docs` flag to filter *only* markdown-docs tests:
 
 ```shell
