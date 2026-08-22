@@ -85,6 +85,24 @@ def test_markdown_text_file(testdir):
     result.assert_outcomes(passed=1, failed=2)
 
 
+def test_file_global_points_to_markdown_source(testdir):
+    testdir.makefile(".txt", neighbor="from neighbor\n")
+    testdir.makefile(
+        ".md",
+        test_file="""
+```python
+from pathlib import Path
+
+assert Path(__file__).name == "test_file.md"
+assert Path(__file__).with_name("neighbor.txt").read_text().strip() == "from neighbor"
+```
+""",
+    )
+
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+
+
 def test_continuation(testdir):
     testdir.makefile(
         ".md",

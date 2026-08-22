@@ -95,6 +95,7 @@ class MarkdownInlinePythonItem(pytest.Item):
 
         mod = types.ModuleType("fence")  # dummy module
         all_globals = mod.__dict__
+        all_globals["__file__"] = str(self.test_definition.source_path)
         for global_set in global_sets:
             all_globals.update(global_set)
 
