@@ -489,6 +489,71 @@ def test_error_origin_before_docstring_traceback(testdir, support_dir):
     )
 
 
+def test_docstring_line_numbers(testdir):
+    testdir.makepyfile(
+        docstring_lines='''
+        def summary_on_first_line():
+            """Summary line.
+
+            ```python
+            raise Exception("foo")
+            ```
+            """
+
+
+        def raw_docstring():
+            r"""Matches \\d.
+
+            ```python
+            raise Exception("bar")
+            ```"""
+        '''
+    )
+    result = testdir.runpytest("-v", "--markdown-docs")
+    result.assert_outcomes(failed=2)
+    result.stdout.re_match_lines(
+        [
+            r".*::raw_docstring\[CodeFence#1\]\[line:13\] FAILED.*",
+            r".*::summary_on_first_line\[CodeFence#1\]\[line:4\] FAILED.*",
+        ],
+        consecutive=True,
+    )
+    result.stdout.re_match_lines(
+        [
+            r'\s*File ".*/docstring_lines.py", line 14, in <module>',
+            r'\s*raise Exception\("bar"\)',
+        ],
+        consecutive=True,
+    )
+    result.stdout.re_match_lines(
+        [
+            r'\s*File ".*/docstring_lines.py", line 5, in <module>',
+            r'\s*raise Exception\("foo"\)',
+        ],
+        consecutive=True,
+    )
+
+
+def test_module_docstring_line_numbers(testdir):
+    testdir.makepyfile(
+        module_docstring='''
+        """
+        ```python
+        raise Exception("foo")
+        ```
+        """
+        '''
+    )
+    result = testdir.runpytest("-v", "--markdown-docs")
+    result.assert_outcomes(failed=1)
+    result.stdout.re_match_lines(
+        [
+            r".*::module_docstring\[CodeFence#1\]\[line:2\] FAILED.*",
+            r'\s*File ".*/module_docstring.py", line 3, in <module>',
+        ]
+    )
+
+
 def test_custom_runner(testdir):
     testdir.makeconftest(
         """
