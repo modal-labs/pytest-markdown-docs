@@ -1,5 +1,7 @@
 import re
 
+import pytest
+
 from _pytest.pytester import LineMatcher
 
 import pytest_markdown_docs  # hack: used for storing a side effect in one of the tests
@@ -1165,3 +1167,51 @@ await asyncio.sleep(0)
     result = testdir.runpytest("--markdown-docs")
     result.assert_outcomes(failed=1)
     result.stdout.fnmatch_lines(["*pytest-asyncio>=1.1.0*"])
+
+
+def test_docstring_collection_does_not_evaluate_descriptors(testdir):
+    testdir.makepyfile(
+        """
+        class Raising:
+            def __get__(self, instance, owner=None):
+                raise RuntimeError("evaluated during collection")
+
+
+        class Hostile:
+            attribute = Raising()
+
+            @staticmethod
+            def static():
+                \"\"\"
+                ```python
+                assert True
+                ```
+                \"\"\"
+
+            @classmethod
+            def klass(cls):
+                \"\"\"
+                ```python
+                assert True
+                ```
+                \"\"\"
+    """
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=2)
+
+
+def test_main_py_is_skipped(testdir):
+    testdir.makepyfile(
+        __main__="""
+        def main():
+            \"\"\"
+            ```python
+            assert True
+            ```
+            \"\"\"
+        """
+    )
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes()
+    assert result.ret == pytest.ExitCode.NO_TESTS_COLLECTED
