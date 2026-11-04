@@ -36,18 +36,41 @@ class FenceSyntax(Enum):
     superfences = "superfences"
 
 
+# Opening quotes of a docstring, with an optional string prefix (e.g. r""")
+DOCSTRING_OPENINGS = tuple(
+    prefix + quotes for prefix in ("", "r", "R", "u", "U") for quotes in ('"""', "'''")
+)
+
+
 def get_docstring_start_line(obj) -> typing.Optional[int]:
+    """Get the line offset of the docstring text returned by `inspect.getdoc`
+
+    The offset is the line number of the first line of that text, minus one.
+    """
     # Get the source lines and the starting line number of the object
     try:
         source_lines, start_line = inspect.getsourcelines(obj)
     except OSError:
         return None
 
+    # getsourcelines returns 0 as the starting line number of a module
+    start_line = max(start_line, 1)
+
+    # inspect.getdoc strips the leading blank lines of the docstring
+    leading_blank_lines = 0
+    raw_docstring = getattr(obj, "__doc__", None)
+    if isinstance(raw_docstring, str):
+        for raw_line in raw_docstring.split("\n"):
+            if raw_line.strip():
+                break
+            leading_blank_lines += 1
+
     # Find the line in the source code that starts with triple quotes (""" or ''')
     for idx, line in enumerate(source_lines):
         line = line.strip()
-        if line.startswith(('"""', "'''")):
-            return start_line + idx  # Return the starting line number
+        if line.startswith(DOCSTRING_OPENINGS):
+            # idx is 0-based, so start_line + idx is the line of the opening quotes
+            return start_line + idx - 1 + leading_blank_lines
 
     return None  # Docstring not found in source
 
