@@ -435,15 +435,24 @@ def pytest_collect_file(
 ):
     if parent.config.option.markdowndocs:
         pathlib_path = pathlib.Path(str(file_path))  # pytest 7/8 compat
-        if pathlib_path.suffix == ".py":
+        only_docstrings = parent.config.option.markdowndocs_only_docstrings
+        only_text = parent.config.option.markdowndocs_only_text
+        if pathlib_path.suffix == ".py" and not only_text:
             return MarkdownDocstringCodeModule.from_parent(parent, path=pathlib_path)
-        elif pathlib_path.suffix in (".md", ".mdx", ".svx"):
+        elif pathlib_path.suffix in (".md", ".mdx", ".svx") and not only_docstrings:
             return MarkdownTextFile.from_parent(parent, path=pathlib_path)
 
     return None
 
 
 def pytest_configure(config):
+    if (
+        config.option.markdowndocs_only_docstrings
+        and config.option.markdowndocs_only_text
+    ):
+        raise pytest.UsageError(
+            "--markdown-docs-only-docstrings and --markdown-docs-only-text are mutually exclusive"
+        )
     config.addinivalue_line(
         "markers", f"{MARKER_NAME}: filter for pytest-markdown-docs generated tests"
     )
@@ -457,6 +466,20 @@ def pytest_addoption(parser: Parser) -> None:
         default=False,
         help="run ",
         dest="markdowndocs",
+    )
+    group.addoption(
+        "--markdown-docs-only-docstrings",
+        action="store_true",
+        default=False,
+        help="collect markdown code fences only from Python docstrings",
+        dest="markdowndocs_only_docstrings",
+    )
+    group.addoption(
+        "--markdown-docs-only-text",
+        action="store_true",
+        default=False,
+        help="collect markdown code fences only from standalone Markdown files",
+        dest="markdowndocs_only_text",
     )
     group.addoption(
         "--markdown-docs-syntax",
