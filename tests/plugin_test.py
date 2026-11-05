@@ -515,8 +515,9 @@ def test_docstring_line_numbers(testdir):
     result.assert_outcomes(failed=2)
     result.stdout.re_match_lines(
         [
-            r".*::raw_docstring\[CodeFence#1\]\[line:13\] FAILED.*",
+            # docstring tests are collected in definition order
             r".*::summary_on_first_line\[CodeFence#1\]\[line:4\] FAILED.*",
+            r".*::raw_docstring\[CodeFence#1\]\[line:13\] FAILED.*",
         ],
         consecutive=True,
     )
