@@ -11,6 +11,11 @@ class FenceTestDefinition:
     source_path: pathlib.Path
     runner_name: typing.Optional[str]
     max_retries: int = 0
+    # All options on the fence (everything after the language in the info
+    # string, plus any mdx-comment metadata), including ones the plugin itself
+    # consumes, e.g. `fixture:foo` and `continuation`. Lets custom runners
+    # define their own options without requiring a pytest fixture per flag.
+    options: typing.FrozenSet[str] = frozenset()
 
 
 @dataclass(frozen=True)
