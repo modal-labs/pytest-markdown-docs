@@ -1503,6 +1503,19 @@ def test_docstring_collection_does_not_evaluate_descriptors(testdir):
     result.assert_outcomes(passed=2)
 
 
+def test_non_utf8_markdown_file_does_not_crash_collection(testdir):
+    import pathlib
+
+    testdir.makeconftest("")
+    tmp = pathlib.Path(str(testdir.tmpdir))
+    tmp.joinpath("good.md").write_text("```python\nassert True\n```\n", encoding="utf-8")
+    # latin-1 bytes that are invalid UTF-8
+    tmp.joinpath("bad.md").write_bytes(b"```python\nassert True\n```\n\ncaf\xe9\n")
+    result = testdir.runpytest("--markdown-docs")
+    result.assert_outcomes(passed=1)
+    result.stdout.no_fnmatch_line("*UnicodeDecodeError*")
+
+
 def test_main_py_is_skipped(testdir):
     testdir.makepyfile(
         __main__="""
