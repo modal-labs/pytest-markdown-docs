@@ -440,7 +440,11 @@ class MarkdownTextFile(pytest.File):
         # (needed for pytest-asyncio 0.23.x; 1.x uses pytest_fixture_setup hook instead)
         _preprocess_async_fixtures_if_available(self)
 
-        markdown_content = self.path.read_text("utf8")
+        try:
+            markdown_content = self.path.read_text("utf8")
+        except UnicodeDecodeError:
+            logger.warning("Skipping %s: file is not valid UTF-8.", self.path)
+            return
         fence_syntax = FenceSyntax(self.config.option.markdowndocs_syntax)
 
         markdown_it_parser = self.config.hook.pytest_markdown_docs_markdown_it()
